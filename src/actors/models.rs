@@ -1,0 +1,149 @@
+use ggez::graphics;
+use ggez::graphics::{Color, Drawable, Mesh};
+use ggez::mint::Point2;
+use std::ops::Deref;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ActorType {
+    Player,
+    Enemy,
+    PlayerProjectile,
+    EnemyProjectile,
+}
+
+#[derive(Debug, Clone)]
+pub struct Actor {
+    pub actor_type: ActorType,
+    pub x: f32,
+    pub y: f32,
+    pub target_x: f32,
+    pub target_y: f32,
+    pub velocity: f32,
+    pub color: graphics::Color,
+    pub hp: f32,
+    pub bounding_box: graphics::Mesh,
+    pub is_taking_damage: Option<f32>,
+}
+
+pub fn get_player_polygon_mesh_vertices() -> Vec<Point2<f32>> {
+    vec![
+        Point2 { x: 0.0, y: -25.0 },
+        Point2 { x: 2.0, y: -25.0 },
+        Point2 { x: 6.0, y: -26.0 },
+        Point2 { x: 10.0, y: -16.0 },
+        Point2 { x: 16.0, y: -8.0 },
+        Point2 { x: 4.0, y: -12.0 },
+        Point2 { x: 4.0, y: -10.0 },
+        // middle
+        Point2 { x: -4.0, y: -10.0 },
+        Point2 { x: -4.0, y: -12.0 },
+        Point2 { x: -16.0, y: -8.0 },
+        Point2 { x: -10.0, y: -16.0 },
+        Point2 { x: -4.0, y: -26.0 },
+        Point2 { x: -2.0, y: -25.0 },
+        Point2 { x: 0.0, y: -25.0 },
+    ]
+}
+
+pub fn get_enemy_polygon_mesh_vertices() -> Vec<Point2<f32>> {
+    vec![
+        Point2 { x: 0.0, y: 25.0 },
+        Point2 { x: 2.0, y: 25.0 },
+        Point2 { x: 6.0, y: 26.0 },
+        Point2 { x: 10.0, y: 16.0 },
+        Point2 { x: 16.0, y: 8.0 },
+        Point2 { x: 4.0, y: 12.0 },
+        Point2 { x: 4.0, y: 10.0 },
+        // middle
+        Point2 { x: -4.0, y: 10.0 },
+        Point2 { x: -4.0, y: 12.0 },
+        Point2 { x: -16.0, y: 8.0 },
+        Point2 { x: -10.0, y: 16.0 },
+        Point2 { x: -4.0, y: 26.0 },
+        Point2 { x: -2.0, y: 25.0 },
+        Point2 { x: 0.0, y: 25.0 },
+    ]
+}
+
+pub fn get_projectile_mesh_vertices() -> Vec<Point2<f32>> {
+    vec![
+        Point2 { x: 0.0, y: 0.0 },
+        Point2 { x: 5.0, y: 2.5 },
+        Point2 { x: 5.0, y: 5.0 },
+        Point2 { x: 0.0, y: 2.5 },
+        Point2 { x: 0.0, y: 0.0 },
+    ]
+}
+pub fn get_player_alt_projectile_mesh_vertices() -> Vec<Point2<f32>> {
+    vec![
+        Point2 { x: -20.0, y: -10.0 },
+        Point2 { x: -15.0, y: -20.0 },
+        Point2 { x: 0.0, y: -30.0 },
+        Point2 { x: 15.0, y: -20.0 },
+        Point2 { x: 20.0, y: -10.0 },
+        Point2 { x: 10.0, y: 0.0 },
+        Point2 { x: 0.0, y: 0.0 },
+        Point2 { x: -10.0, y: 0.0 },
+        Point2 { x: -20.0, y: -10.0 },
+    ]
+}
+
+impl Actor {
+    fn get_mesh_vertices(&self) -> Vec<Point2<f32>> {
+        match self.actor_type {
+            ActorType::Player => get_player_polygon_mesh_vertices(),
+            ActorType::Enemy => get_enemy_polygon_mesh_vertices(),
+            ActorType::PlayerProjectile | ActorType::EnemyProjectile => {
+                get_projectile_mesh_vertices()
+            }
+        }
+    }
+}
+
+pub fn take_damage(actor: &mut Actor, damage: &f32) -> () {
+    actor.hp -= damage;
+}
+
+pub fn create_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let player_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_player_polygon_mesh_vertices().deref(),
+        Color::from_rgb(150, 200, 150),
+    )
+    .unwrap();
+    player_mesh
+}
+
+pub fn create_enemy_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let player_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_enemy_polygon_mesh_vertices().deref(),
+        Color::from_rgb(200, 100, 100),
+    )
+    .unwrap();
+    player_mesh
+}
+
+pub fn create_player_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let projectile_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_projectile_mesh_vertices().deref(),
+        Color::from_rgb(50, 200, 250),
+    )
+    .unwrap();
+    projectile_mesh
+}
+
+pub fn create_player_alt_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let projectile_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_player_alt_projectile_mesh_vertices().deref(),
+        Color::from_rgba(50, 210, 220, 200),
+    )
+    .unwrap();
+    projectile_mesh
+}
