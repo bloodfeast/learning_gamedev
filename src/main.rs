@@ -190,8 +190,26 @@ impl event::EventHandler<GameError> for GameState {
         player_coords = (self.player.x, self.player.y);
 
         for i in 0..self.enemy.len() {
-            self.enemy[i].target_x = player_coords.0;
-            self.enemy[i].target_y = player_coords.1;
+            let (x, y) = match ctx.time.time_since_start().as_millis() {
+                (t) if t % 2000 == 0 => (player_coords.0, player_coords.1),
+                (t) if t % 1000 == 0 => {
+                    // rng to determine the target position of the enemy
+                    let mut rng = rand::thread_rng();
+                    let x = rng.gen_range(player_coords.0..(player_coords.0 + 1000.0));
+                    let y = player_coords.1;
+                    (x, y)
+                }
+                (t) if t % 800 == 0 => {
+                    // rng to determine the target position of the enemy
+                    let mut rng = rand::thread_rng();
+                    let x = rng.gen_range((player_coords.0 - 1000.0)..player_coords.0);
+                    let y = player_coords.1;
+                    (x, y)
+                }
+                _ => (self.enemy[i].target_x, self.enemy[i].target_y),
+            };
+            self.enemy[i].target_x = x;
+            self.enemy[i].target_y = y;
 
             // Prevent enemies from colliding with each other
             for j in 0..self.enemy.len() {
@@ -200,7 +218,7 @@ impl event::EventHandler<GameError> for GameState {
                     let distance = ((self.enemy[i].x - other_enemy.x).powi(2)
                         + (self.enemy[i].y - other_enemy.y).powi(2))
                     .sqrt();
-                    if distance < self.enemy[i].bounding_box.dimensions(ctx).unwrap().w {
+                    if distance < self.enemy[i].bounding_box.dimensions(ctx).unwrap().w + 20.0 {
                         // Calculate the direction vector from other_enemy to enemy
                         let direction = (
                             self.enemy[i].x - other_enemy.x,
@@ -216,8 +234,8 @@ impl event::EventHandler<GameError> for GameState {
                         };
 
                         // Set the target position to a point in the opposite direction
-                        self.enemy[i].target_x = self.enemy[i].x + unit_direction.0 * 100.0;
-                        self.enemy[i].target_y = self.enemy[i].y + unit_direction.1 * 100.0;
+                        self.enemy[i].target_x = self.enemy[i].x + unit_direction.0 * 10.0;
+                        self.enemy[i].target_y = self.enemy[i].y + unit_direction.1 * 10.0;
                     }
                 }
             }
@@ -225,8 +243,8 @@ impl event::EventHandler<GameError> for GameState {
             handle_enemy_movement(&mut self.enemy[i], self.dt);
 
             if self.enemy[i].attack_cooldown == Some(0.0) {
-                let aim_x = player_coords.0 + rand::thread_rng().gen_range(-100.0..100.0);
-                let aim_y = player_coords.1 + rand::thread_rng().gen_range(-100.0..100.0);
+                let aim_x = player_coords.0 + rand::thread_rng().gen_range(-420.0..420.0);
+                let aim_y = player_coords.1 + rand::thread_rng().gen_range(-420.0..420.0);
                 let direction = ((aim_x - self.enemy[i].x), (aim_y - self.enemy[i].y));
                 // Calculate the length of the direction vector
                 let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
@@ -248,7 +266,7 @@ impl event::EventHandler<GameError> for GameState {
                     create_enemy_projectile_mesh(ctx),
                     Some(1.0),
                 );
-                self.enemy[i].attack_cooldown = Some(1000.0);
+                self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(500.0..5000.0));
                 self.projectiles.push(projectile);
             }
         }
@@ -324,10 +342,8 @@ impl event::EventHandler<GameError> for GameState {
                 let mut rng = rand::thread_rng();
                 let mut x_nums: Vec<i32> = (0..1800).collect();
                 let mut y_nums: Vec<i32> = (100..900).collect();
-                let mut attack_delays: Vec<i32> = (1000..5000).collect();
                 x_nums.shuffle(&mut rng);
                 y_nums.shuffle(&mut rng);
-                attack_delays.shuffle(&mut rng);
 
                 x_nums.retain(|&x| {
                     x < (player_coords.0 - 400.0) as i32 || x > (player_coords.0 + 400.0) as i32
@@ -335,8 +351,8 @@ impl event::EventHandler<GameError> for GameState {
                 y_nums.retain(|&y| {
                     y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
                 });
-                let attack_cd = if self.kills > 15 {
-                    Some(attack_delays[0] as f32)
+                let attack_cd = if self.kills > 1 {
+                    Some(rng.gen_range(500.0..5000.0))
                 } else {
                     None
                 };
@@ -389,6 +405,9 @@ impl event::EventHandler<GameError> for GameState {
             kill_count.set_scale(30.0);
             game_over_text.draw(&mut canvas, Point2::from([800.0, 500.0]));
             kill_count.draw(&mut canvas, Point2::from([900.0, 580.0]));
+            self.enemy.drain(..);
+            self.projectiles.drain(..);
+
             return canvas.finish(ctx);
         }
         self.player

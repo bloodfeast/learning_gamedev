@@ -69,7 +69,7 @@ pub fn create_enemy_projectile(
         y,
         target_x,
         target_y,
-        velocity: 800.0,
+        velocity: 600.0,
         color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
         hp: damage,
         bounding_box: mesh,
