@@ -457,20 +457,130 @@ impl event::EventHandler<GameError> for GameState {
         let projectile_spawn_x_offset = if unit_direction.0 > 0.0 { 10.0 } else { -10.0 };
         let projectiles: Option<Vec<Actor>> = match button {
             MouseButton::Left => {
-                let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.25);
+                let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.5);
                 if modifier.unwrap() == 0.0 {
                     modifier = None;
                 }
-                // Create a player projectile at the player's position
-                let projectile = create_player_projectile(
-                    player.x + projectile_spawn_x_offset,
-                    player.y + projectile_spawn_y_offset,
-                    far_away_target.0,
-                    far_away_target.1,
-                    create_player_projectile_mesh(ctx),
-                    modifier,
-                );
-                Some(vec![projectile])
+                match self.kills {
+                    (kills) if kills > 40 => {
+                        let mut split_projectiles = vec![];
+                        for i in 0..5 {
+                            match i {
+                                0 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 - 800.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                1 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 - 400.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                2 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                3 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 + 400.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                4 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 + 800.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                _ => (),
+                            }
+                        }
+                        Some(split_projectiles)
+                    }
+                    (kills) if kills > 20 => {
+                        let mut split_projectiles = vec![];
+                        for i in 0..3 {
+                            match i {
+                                0 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 - 500.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                1 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                2 => {
+                                    let projectile = create_player_projectile(
+                                        player.x + projectile_spawn_x_offset,
+                                        player.y + projectile_spawn_y_offset,
+                                        far_away_target.0 + 500.0,
+                                        far_away_target.1,
+                                        create_player_projectile_mesh(ctx),
+                                        modifier,
+                                    );
+                                    split_projectiles.push(projectile);
+                                }
+                                _ => (),
+                            }
+                        }
+                        Some(split_projectiles)
+                    }
+                    _ => {
+                        // Create a player projectile at the player's position
+                        let projectile = create_player_projectile(
+                            player.x + projectile_spawn_x_offset,
+                            player.y + projectile_spawn_y_offset,
+                            far_away_target.0,
+                            far_away_target.1,
+                            create_player_projectile_mesh(ctx),
+                            modifier,
+                        );
+                        Some(vec![projectile])
+                    }
+                }
             }
             MouseButton::Right => {
                 let alt_projectile: Option<Actor> = match self.alt_cd {
