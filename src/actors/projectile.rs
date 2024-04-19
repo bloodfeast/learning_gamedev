@@ -26,6 +26,7 @@ pub fn create_player_projectile(
         hp: damage,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown: None,
     }
 }
 
@@ -49,6 +50,7 @@ pub fn create_player_alt_projectile(
         hp: damage,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown: Some(5000.0),
     }
 }
 
@@ -72,5 +74,6 @@ pub fn create_enemy_projectile(
         hp: damage,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown: None,
     }
 }

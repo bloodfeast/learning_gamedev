@@ -13,5 +13,6 @@ pub fn create_player(x: f32, y: f32, color: Color, mesh: Mesh) -> Actor {
         hp: 100.0,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown: None,
     }
 }

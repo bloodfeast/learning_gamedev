@@ -23,6 +23,7 @@ pub struct Actor {
     pub hp: f32,
     pub bounding_box: graphics::Mesh,
     pub is_taking_damage: Option<f32>,
+    pub attack_cooldown: Option<f32>,
 }
 
 pub fn get_player_polygon_mesh_vertices() -> Vec<Point2<f32>> {
@@ -132,6 +133,17 @@ pub fn create_player_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh 
         graphics::DrawMode::fill(),
         get_projectile_mesh_vertices().deref(),
         Color::from_rgb(50, 200, 250),
+    )
+    .unwrap();
+    projectile_mesh
+}
+
+pub fn create_enemy_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let projectile_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_projectile_mesh_vertices().deref(),
+        Color::from_rgb(250, 100, 150),
     )
     .unwrap();
     projectile_mesh

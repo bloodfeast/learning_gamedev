@@ -1,7 +1,14 @@
 use crate::actors::models::{Actor, ActorType};
 use ggez::graphics::{Color, Mesh};
 
-pub fn create_enemy(x: f32, y: f32, color: Color, mesh: Mesh, hp_modifier: Option<f32>) -> Actor {
+pub fn create_enemy(
+    x: f32,
+    y: f32,
+    color: Color,
+    mesh: Mesh,
+    hp_modifier: Option<f32>,
+    attack_cooldown: Option<f32>,
+) -> Actor {
     let hp = 5.0 * hp_modifier.unwrap_or(1.0);
     // log(n) max velocity of 550.0
     let velocity = 600.0_f32.ln() * hp_modifier.unwrap_or(1.0) + 100.0;
@@ -16,6 +23,7 @@ pub fn create_enemy(x: f32, y: f32, color: Color, mesh: Mesh, hp_modifier: Optio
         hp,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown,
     }
 }
 pub fn create_boss_enemy(
@@ -25,6 +33,7 @@ pub fn create_boss_enemy(
     hp_scale_factor: f32,
     velocity_scale_factor: f32,
     mesh: Mesh,
+    attack_cooldown: Option<f32>,
 ) -> Actor {
     Actor {
         actor_type: ActorType::Enemy,
@@ -37,5 +46,6 @@ pub fn create_boss_enemy(
         hp: 1000.0 * hp_scale_factor,
         bounding_box: mesh,
         is_taking_damage: None,
+        attack_cooldown,
     }
 }

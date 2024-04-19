@@ -2,12 +2,13 @@ mod actors;
 
 use crate::actors::enemy::create_enemy;
 use crate::actors::models::{
-    create_enemy_spaceship_mesh, create_player_alt_projectile_mesh, create_player_projectile_mesh,
-    create_spaceship_mesh, take_damage, Actor, ActorType,
+    create_enemy_projectile_mesh, create_enemy_spaceship_mesh, create_player_alt_projectile_mesh,
+    create_player_projectile_mesh, create_spaceship_mesh, take_damage, Actor, ActorType,
 };
 use crate::actors::player::create_player;
 use crate::actors::projectile::{
-    create_player_alt_projectile, create_player_projectile, handle_timed_life,
+    create_enemy_projectile, create_player_alt_projectile, create_player_projectile,
+    handle_timed_life,
 };
 use ggez::conf::NumSamples;
 use ggez::context::{Has, HasMut};
@@ -17,10 +18,9 @@ use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::mint::Point2;
 use ggez::*;
 use rand::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ops::{Deref, DerefMut, Div};
 use std::thread;
-use std::time::Duration;
 
 struct GameState {
     dt: std::time::Duration,
@@ -30,6 +30,143 @@ struct GameState {
     keys_pressed: HashSet<KeyCode>,
     kills: u64,
     alt_cd: f32,
+}
+fn handle_player_movement(
+    player: &mut Actor,
+    keys_pressed: &HashSet<KeyCode>,
+    dt: std::time::Duration,
+    screen_width: f32,
+    screen_height: f32,
+) {
+    let mut is_moving = false;
+    if keys_pressed.contains(&KeyCode::W) {
+        player.target_y -= player.velocity * dt.as_secs_f32();
+        is_moving = true;
+    }
+    if keys_pressed.contains(&KeyCode::S) {
+        player.target_y += player.velocity * dt.as_secs_f32();
+        is_moving = true;
+    }
+    if keys_pressed.contains(&KeyCode::A) {
+        player.target_x -= player.velocity * dt.as_secs_f32();
+        is_moving = true;
+    }
+    if keys_pressed.contains(&KeyCode::D) {
+        player.target_x += player.velocity * dt.as_secs_f32();
+        is_moving = true;
+    }
+    // Check if the player is outside the screen boundaries
+    if player.x <= 0.0 {
+        player.x = 0.0;
+        player.target_x = player.x + 10.0;
+    } else if player.x >= screen_width {
+        player.x = screen_width;
+        player.target_x = player.x - 10.0;
+    }
+
+    if player.y <= 0.0 {
+        player.y = 0.0;
+        player.target_y = player.y + 10.0;
+    } else if player.y >= screen_height {
+        player.y = screen_height;
+        player.target_y = player.y - 10.0;
+    }
+    // If no movement keys are pressed, reduce the actor's velocity to simulate deceleration
+    if !is_moving && player.velocity > 0.0 {
+        player.velocity -= 1.0 * dt.as_millis() as f32; // Deceleration factor of 10.0
+        if player.velocity < 1.0 {
+            player.velocity = 0.0;
+        }
+    } else if is_moving {
+        player.velocity += 1.0 * dt.as_millis() as f32; // Deceleration factor of 10.0
+        if player.velocity > 800.0 {
+            player.velocity = 800.0;
+        }
+    }
+    // Calculate the direction vector from the actor's current position to the target position
+    let direction = ((player.target_x - player.x), (player.target_y - player.y));
+
+    // Calculate the length of the direction vector
+    let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+
+    // Normalize the direction vector to get a unit direction vector
+    let unit_direction = if length > 0.0 {
+        (direction.0 / length, direction.1 / length)
+    } else {
+        (0.0, 0.0)
+    };
+    // Update the actor's velocity
+    // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
+    let movement = (
+        unit_direction.0 * player.velocity * dt.as_secs_f32(),
+        unit_direction.1 * player.velocity * dt.as_secs_f32(),
+    );
+    // Update the actor's position
+    player.x += movement.0;
+    player.y += movement.1;
+}
+
+fn handle_enemy_movement(enemy: &mut Actor, dt: std::time::Duration) {
+    // Calculate the direction vector from the actor's current position to the target position
+    let direction = ((enemy.target_x - enemy.x), (enemy.target_y - enemy.y));
+
+    // Calculate the length of the direction vector
+    let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+
+    enemy.attack_cooldown = match enemy.attack_cooldown {
+        Some(mut cd) => {
+            if cd <= 0.0 {
+                cd = 0.0;
+            } else {
+                cd -= dt.as_millis() as f32;
+            }
+            Some(cd)
+        }
+        None => None,
+    };
+
+    // Normalize the direction vector to get a unit direction vector
+    let unit_direction = if length > 0.0 {
+        (direction.0 / length, direction.1 / length)
+    } else {
+        (0.0, 0.0)
+    };
+    // Update the actor's velocity
+    // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
+    let movement = (
+        unit_direction.0 * enemy.velocity * dt.as_secs_f32(),
+        unit_direction.1 * enemy.velocity * dt.as_secs_f32(),
+    );
+    // Update the actor's position
+    enemy.x += movement.0;
+    enemy.y += movement.1;
+}
+
+fn handle_projectile_trajectory(projectile: &mut Actor, dt: std::time::Duration) {
+    // Calculate the direction vector from the actor's current position to the target position
+    let direction = (
+        (projectile.target_x - projectile.x),
+        (projectile.target_y - projectile.y),
+    );
+
+    // Calculate the length of the direction vector
+    let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+
+    // Normalize the direction vector to get a unit direction vector
+    let unit_direction = if length > 0.0 {
+        (direction.0 / length, direction.1 / length)
+    } else {
+        (0.0, 0.0)
+    };
+    // Update the actor's velocity
+    // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
+    let movement = (
+        unit_direction.0 * projectile.velocity * dt.as_secs_f32(),
+        unit_direction.1 * projectile.velocity * dt.as_secs_f32(),
+    );
+    // Update the actor's position
+    projectile.x += movement.0;
+    projectile.y += movement.1;
 }
 
 impl event::EventHandler<GameError> for GameState {
@@ -43,75 +180,13 @@ impl event::EventHandler<GameError> for GameState {
             self.alt_cd -= self.dt.as_millis() as f32;
         }
         let mut player_coords = (0.0, 0.0);
-        let mut is_moving = false;
-        if self.keys_pressed.contains(&KeyCode::W) {
-            self.player.target_y -= self.player.velocity * self.dt.as_secs_f32();
-            is_moving = true;
-        }
-        if self.keys_pressed.contains(&KeyCode::S) {
-            self.player.target_y += self.player.velocity * self.dt.as_secs_f32();
-            is_moving = true;
-        }
-        if self.keys_pressed.contains(&KeyCode::A) {
-            self.player.target_x -= self.player.velocity * self.dt.as_secs_f32();
-            is_moving = true;
-        }
-        if self.keys_pressed.contains(&KeyCode::D) {
-            self.player.target_x += self.player.velocity * self.dt.as_secs_f32();
-            is_moving = true;
-        }
-        // Check if the player is outside the screen boundaries
-        if self.player.x <= 0.0 {
-            self.player.x = 0.0;
-            self.player.target_x = self.player.x + 10.0;
-        } else if self.player.x >= screen_width {
-            self.player.x = screen_width;
-            self.player.target_x = self.player.x - 10.0;
-        }
-
-        if self.player.y <= 0.0 {
-            self.player.y = 0.0;
-            self.player.target_y = self.player.y + 10.0;
-        } else if self.player.y >= screen_height {
-            self.player.y = screen_height;
-            self.player.target_y = self.player.y - 10.0;
-        }
-        // If no movement keys are pressed, reduce the actor's velocity to simulate deceleration
-        if !is_moving && self.player.velocity > 0.0 {
-            self.player.velocity -= 1.0 * self.dt.as_millis() as f32; // Deceleration factor of 10.0
-            if self.player.velocity < 1.0 {
-                self.player.velocity = 0.0;
-            }
-        } else if is_moving {
-            self.player.velocity += 1.0 * self.dt.as_millis() as f32; // Deceleration factor of 10.0
-            if self.player.velocity > 800.0 {
-                self.player.velocity = 800.0;
-            }
-        }
-        // Calculate the direction vector from the actor's current position to the target position
-        let direction = (
-            (self.player.target_x - self.player.x),
-            (self.player.target_y - self.player.y),
+        handle_player_movement(
+            &mut self.player,
+            &self.keys_pressed,
+            self.dt,
+            screen_width,
+            screen_height,
         );
-
-        // Calculate the length of the direction vector
-        let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
-
-        // Normalize the direction vector to get a unit direction vector
-        let unit_direction = if length > 0.0 {
-            (direction.0 / length, direction.1 / length)
-        } else {
-            (0.0, 0.0)
-        };
-        // Update the actor's velocity
-        // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
-        let movement = (
-            unit_direction.0 * self.player.velocity * self.dt.as_secs_f32(),
-            unit_direction.1 * self.player.velocity * self.dt.as_secs_f32(),
-        );
-        // Update the actor's position
-        self.player.x += movement.0;
-        self.player.y += movement.1;
         player_coords = (self.player.x, self.player.y);
 
         for i in 0..self.enemy.len() {
@@ -147,58 +222,48 @@ impl event::EventHandler<GameError> for GameState {
                 }
             }
 
-            // Calculate the direction vector from the actor's current position to the target position
-            let direction = (
-                (self.enemy[i].target_x - self.enemy[i].x),
-                (self.enemy[i].target_y - self.enemy[i].y),
-            );
+            handle_enemy_movement(&mut self.enemy[i], self.dt);
 
-            // Calculate the length of the direction vector
-            let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
-
-            // Normalize the direction vector to get a unit direction vector
-            let unit_direction = if length > 0.0 {
-                (direction.0 / length, direction.1 / length)
-            } else {
-                (0.0, 0.0)
-            };
-            // Update the actor's velocity
-            // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
-            let movement = (
-                unit_direction.0 * self.enemy[i].velocity * self.dt.as_secs_f32(),
-                unit_direction.1 * self.enemy[i].velocity * self.dt.as_secs_f32(),
-            );
-            // Update the actor's position
-            self.enemy[i].x += movement.0;
-            self.enemy[i].y += movement.1;
+            if self.enemy[i].attack_cooldown == Some(0.0) {
+                let aim_x = player_coords.0 + rand::thread_rng().gen_range(-100.0..100.0);
+                let aim_y = player_coords.1 + rand::thread_rng().gen_range(-100.0..100.0);
+                let direction = ((aim_x - self.enemy[i].x), (aim_y - self.enemy[i].y));
+                // Calculate the length of the direction vector
+                let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+                // Normalize the direction vector to get a unit direction vector
+                let unit_direction = match length > 0.0 {
+                    true => (direction.0 / length, direction.1 / length),
+                    false => (0.0, 0.0),
+                };
+                // Multiply the unit direction vector by a large number to get a far away target position
+                let far_away_target = (
+                    player_coords.0 + unit_direction.0 * 10000.0,
+                    player_coords.1 + unit_direction.1 * 10000.0,
+                );
+                let projectile = create_enemy_projectile(
+                    self.enemy[i].x,
+                    self.enemy[i].y,
+                    far_away_target.0,
+                    far_away_target.1,
+                    create_enemy_projectile_mesh(ctx),
+                    Some(1.0),
+                );
+                self.enemy[i].attack_cooldown = Some(1000.0);
+                self.projectiles.push(projectile);
+            }
         }
         for projectile in &mut self.projectiles {
             // Check if the projectile is outside the screen boundaries
             handle_timed_life(projectile, self.dt.as_secs_f32());
-            // Calculate the direction vector from the actor's current position to the target position
-            let direction = (
-                (projectile.target_x - projectile.x),
-                (projectile.target_y - projectile.y),
-            );
-
-            // Calculate the length of the direction vector
-            let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
-
-            // Normalize the direction vector to get a unit direction vector
-            let unit_direction = if length > 0.0 {
-                (direction.0 / length, direction.1 / length)
-            } else {
-                (0.0, 0.0)
-            };
-            // Update the actor's velocity
-            // Calculate the movement vector by multiplying the unit direction vector by the actor's velocity and the elapsed time
-            let movement = (
-                unit_direction.0 * projectile.velocity * self.dt.as_secs_f32(),
-                unit_direction.1 * projectile.velocity * self.dt.as_secs_f32(),
-            );
-            // Update the actor's position
-            projectile.x += movement.0;
-            projectile.y += movement.1;
+            handle_projectile_trajectory(projectile, self.dt);
+            // Check if the projectile is outside the screen boundaries
+            if projectile.x <= 0.0
+                || projectile.x >= screen_width
+                || projectile.y <= 0.0
+                || projectile.y >= screen_height
+            {
+                projectile.hp = 0.0;
+            }
         }
 
         // Check for collisions between the player and the enemy
@@ -233,6 +298,9 @@ impl event::EventHandler<GameError> for GameState {
         // Check for collisions between the enemy and the projectiles
         for enemy in &mut self.enemy {
             for projectile in &mut self.projectiles {
+                if projectile.actor_type == ActorType::EnemyProjectile {
+                    continue;
+                }
                 let distance =
                     ((projectile.x - enemy.x).powi(2) + (projectile.y - enemy.y).powi(2)).sqrt();
                 if distance < enemy.bounding_box.dimensions(ctx).unwrap().w {
@@ -256,8 +324,10 @@ impl event::EventHandler<GameError> for GameState {
                 let mut rng = rand::thread_rng();
                 let mut x_nums: Vec<i32> = (0..1800).collect();
                 let mut y_nums: Vec<i32> = (100..900).collect();
+                let mut attack_delays: Vec<i32> = (1000..5000).collect();
                 x_nums.shuffle(&mut rng);
                 y_nums.shuffle(&mut rng);
+                attack_delays.shuffle(&mut rng);
 
                 x_nums.retain(|&x| {
                     x < (player_coords.0 - 400.0) as i32 || x > (player_coords.0 + 400.0) as i32
@@ -265,6 +335,11 @@ impl event::EventHandler<GameError> for GameState {
                 y_nums.retain(|&y| {
                     y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
                 });
+                let attack_cd = if self.kills > 15 {
+                    Some(attack_delays[0] as f32)
+                } else {
+                    None
+                };
 
                 let enemy = create_enemy(
                     x_nums[0] as f32,
@@ -272,6 +347,7 @@ impl event::EventHandler<GameError> for GameState {
                     Color::RED,
                     create_enemy_spaceship_mesh(ctx),
                     Some(self.kills as f32 * 1.10),
+                    attack_cd,
                 );
                 self.enemy.push(enemy);
             }
@@ -479,6 +555,7 @@ fn main() {
         100.0,
         Color::RED,
         create_enemy_spaceship_mesh(&mut ctx),
+        None,
         None,
     );
     let state = GameState {
