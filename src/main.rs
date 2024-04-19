@@ -328,10 +328,10 @@ impl event::EventHandler<GameError> for GameState {
                     if projectile.hp <= 0.0 {
                         projectile.hp = 0.0;
                     }
-                    if enemy.hp <= 0.0 {
-                        self.kills += 1;
-                    }
                 }
+            }
+            if enemy.hp <= 0.0 {
+                self.kills += 1;
             }
         }
 
