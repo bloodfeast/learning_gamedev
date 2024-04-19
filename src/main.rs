@@ -10,20 +10,117 @@ use crate::actors::projectile::{
     create_enemy_projectile, create_player_alt_projectile, create_player_projectile,
     handle_timed_life,
 };
+use ggez::audio::SoundSource;
 use ggez::conf::NumSamples;
 use ggez::context::{Has, HasMut};
 use ggez::event::MouseButton;
-use ggez::graphics::{Canvas, Color, Drawable, Text};
+use ggez::glam::Vec2;
+use ggez::graphics::{Canvas, Color, DrawParam, Drawable, Text};
 use ggez::input::keyboard::{KeyCode, KeyInput};
+use ggez::input::mouse::CursorIcon;
 use ggez::mint::Point2;
+use ggez::winit::dpi::LogicalPosition;
+use ggez::winit::window::{CursorGrabMode, WindowLevel};
 use ggez::*;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut, Div};
-use std::thread;
+use std::time::Duration;
+use std::{env, path, thread};
+
+struct Assets {
+    bgm: audio::Source,
+    player_laser_1: audio::Source,
+    laser_1: audio::Source,
+    special_atk: audio::Source,
+    spread_shot_3: audio::Source,
+    spread_shot_5: audio::Source,
+    damage: audio::Source,
+    background: graphics::Image,
+}
+
+impl Assets {
+    fn new(ctx: &mut Context) -> GameResult<Assets> {
+        let bgm = audio::Source::new(ctx, "/Lost in Another World.mp3").expect(
+            format!(
+                "Failed to load bgm from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/Lost in Another World.mp3"
+            )
+            .as_str(),
+        );
+        let laser_1 = audio::Source::new(ctx, "/laser_1.flac").expect(
+            format!(
+                "Failed to load laser1 from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/laser1.flac"
+            )
+            .as_str(),
+        );
+        let player_laser_1 = audio::Source::new(ctx, "/player_laser_1.flac").expect(
+            format!(
+                "Failed to load player_laser1 from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/player_laser1.flac"
+            )
+            .as_str(),
+        );
+        let special_atk = audio::Source::new(ctx, "/special_atk.flac").expect(
+            format!(
+                "Failed to load special_atk from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/special_atk.flac"
+            )
+            .as_str(),
+        );
+        let spread_shot_3 = audio::Source::new(ctx, "/spread_shot_3.flac").expect(
+            format!(
+                "Failed to load spread_shot_3 from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/spread_shot_3.flac"
+            )
+            .as_str(),
+        );
+        let spread_shot_5 = audio::Source::new(ctx, "/spread_shot_5.flac").expect(
+            format!(
+                "Failed to load spread_shot_5 from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/spread_shot_5.flac"
+            )
+            .as_str(),
+        );
+        let damage = audio::Source::new(ctx, "/damage.flac").expect(
+            format!(
+                "Failed to load damage from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/damage.flac"
+            )
+            .as_str(),
+        );
+        let background = graphics::Image::from_path(ctx, "/background.tiff").expect(
+            format!(
+                "Failed to load background from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/background.png"
+            )
+            .as_str(),
+        );
+        Ok(Assets {
+            bgm,
+            player_laser_1,
+            laser_1,
+            special_atk,
+            spread_shot_3,
+            spread_shot_5,
+            damage,
+            background,
+        })
+    }
+}
 
 struct GameState {
     dt: std::time::Duration,
+    assets: Assets,
     player: Actor,
     enemy: Vec<Actor>,
     projectiles: Vec<Actor>,
@@ -266,6 +363,13 @@ impl event::EventHandler<GameError> for GameState {
                     create_enemy_projectile_mesh(ctx),
                     Some(1.0),
                 );
+
+                self.assets.laser_1.set_volume(0.4);
+                let res = self.assets.laser_1.play(ctx);
+                match res {
+                    Ok(_) => (),
+                    Err(e) => println!("Error playing laser_1: {:?}", e),
+                }
                 self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(500.0..5000.0));
                 self.projectiles.push(projectile);
             }
@@ -293,6 +397,13 @@ impl event::EventHandler<GameError> for GameState {
                 let enemy_hp = &enemy.hp.clone();
                 take_damage(&mut self.player, enemy_hp);
                 take_damage(enemy, &player_hp);
+
+                self.assets.damage.set_volume(0.5);
+                let res = self.assets.damage.play(ctx);
+                match res {
+                    Ok(_) => (),
+                    Err(e) => println!("Error playing bgm: {:?}", e),
+                }
             }
         }
 
@@ -305,6 +416,13 @@ impl event::EventHandler<GameError> for GameState {
                 if projectile.actor_type == ActorType::EnemyProjectile {
                     let hp = self.player.hp;
                     take_damage(&mut self.player, &projectile.hp);
+
+                    self.assets.damage.set_volume(0.5);
+                    let res = self.assets.damage.play(ctx);
+                    match res {
+                        Ok(_) => (),
+                        Err(e) => println!("Error playing bgm: {:?}", e),
+                    }
                     projectile.hp -= hp;
                     if projectile.hp <= 0.0 {
                         projectile.hp = 0.0;
@@ -352,7 +470,7 @@ impl event::EventHandler<GameError> for GameState {
                     y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
                 });
                 let attack_cd = if self.kills > 1 {
-                    Some(rng.gen_range(500.0..5000.0))
+                    Some(rng.gen_range(1000.0..5000.0))
                 } else {
                     None
                 };
@@ -399,6 +517,7 @@ impl event::EventHandler<GameError> for GameState {
         let alt_cd = Text::new(format!("Power Atk CD: {:.2}ms", self.alt_cd));
         alt_cd.draw(&mut canvas, Point2::from([1700.0, 70.0]));
 
+        // canvas.draw(&self.assets.background, Point2::from([0.0, 0.0]));
         if self.player.hp <= 0.0 {
             let mut game_over_text = Text::new("Game Over");
             game_over_text.set_scale(50.0);
@@ -425,6 +544,15 @@ impl event::EventHandler<GameError> for GameState {
                 .bounding_box
                 .draw(&mut canvas, Point2::from([projectile.x, projectile.y]));
         });
+        if !self.assets.bgm.playing() {
+            self.assets.bgm.set_volume(0.45);
+            self.assets.bgm.set_fade_in(Duration::from_millis(5000));
+            let res = self.assets.bgm.play(ctx);
+            match res {
+                Ok(_) => (),
+                Err(e) => println!("Error playing bgm: {:?}", e),
+            }
+        }
 
         canvas.finish(ctx)
     }
@@ -524,6 +652,13 @@ impl event::EventHandler<GameError> for GameState {
                                 _ => (),
                             }
                         }
+
+                        self.assets.spread_shot_5.set_volume(0.425);
+                        let res = self.assets.spread_shot_5.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing bgm: {:?}", e),
+                        }
                         Some(split_projectiles)
                     }
                     (kills) if kills > 20 => {
@@ -566,6 +701,13 @@ impl event::EventHandler<GameError> for GameState {
                                 _ => (),
                             }
                         }
+
+                        self.assets.spread_shot_3.set_volume(0.425);
+                        let res = self.assets.spread_shot_3.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing bgm: {:?}", e),
+                        }
                         Some(split_projectiles)
                     }
                     _ => {
@@ -578,6 +720,13 @@ impl event::EventHandler<GameError> for GameState {
                             create_player_projectile_mesh(ctx),
                             modifier,
                         );
+
+                        self.assets.player_laser_1.set_volume(0.4);
+                        let res = self.assets.player_laser_1.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing bgm: {:?}", e),
+                        }
                         Some(vec![projectile])
                     }
                 }
@@ -596,6 +745,13 @@ impl event::EventHandler<GameError> for GameState {
                             let mut modifier = Some(((self.kills / 30) as f32).floor() * 100.0);
                             if modifier.unwrap() == 0.0 {
                                 modifier = Some(100.0);
+                            }
+
+                            self.assets.special_atk.set_volume(0.43);
+                            let res = self.assets.special_atk.play(ctx);
+                            match res {
+                                Ok(_) => (),
+                                Err(e) => println!("Error playing bgm: {:?}", e),
                             }
                             Some(create_player_alt_projectile(
                                 player.x + projectile_spawn_x_offset,
@@ -668,16 +824,39 @@ fn main() {
     let window_mode = conf::WindowMode::default().dimensions(1920.0, 1080.0);
     let window_setup = conf::WindowSetup::default()
         .title("Hello ggez")
-        .vsync(false)
+        .vsync(true)
         .samples(NumSamples::Four);
     let mut c = conf::Conf::new();
     c.window_mode = window_mode;
     c.window_setup = window_setup;
 
-    let (mut ctx, event_loop) = ContextBuilder::new("hello_ggez", "awesome_person")
+    let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let mut path = path::PathBuf::from(manifest_dir);
+        path.push("resources");
+        println!("Adding path {path:?}");
+        path
+    } else {
+        path::PathBuf::from("./resources")
+    };
+
+    let mut cb =
+        ContextBuilder::new("hello_ggez", "awesome_person").add_resource_path(resource_dir);
+
+    let (mut ctx, event_loop) = cb
         .default_conf(c)
         .build()
-        .unwrap();
+        .expect("Failed to build ggez context");
+
+    ctx.gfx
+        .window()
+        .set_cursor_grab(CursorGrabMode::Confined)
+        .expect("Failed to set cursor grab mode");
+    ctx.gfx.window().set_cursor_icon(CursorIcon::Crosshair);
+    ctx.gfx
+        .window()
+        .set_cursor_position(LogicalPosition::new(960.0, 540.0))
+        .expect("Failed to set cursor position");
+    ctx.gfx.window().set_window_level(WindowLevel::AlwaysOnTop);
     let player = create_player(900.0, 900.0, Color::WHITE, create_spaceship_mesh(&mut ctx));
     let enemy = create_enemy(
         900.0,
@@ -687,8 +866,10 @@ fn main() {
         None,
         None,
     );
+    let assets = Assets::new(&mut ctx).unwrap();
     let state = GameState {
         dt: std::time::Duration::new(0, 0),
+        assets,
         player,
         enemy: vec![enemy],
         projectiles: vec![],
