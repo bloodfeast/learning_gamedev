@@ -12,10 +12,8 @@ use crate::actors::projectile::{
 };
 use ggez::audio::SoundSource;
 use ggez::conf::NumSamples;
-use ggez::context::{Has, HasMut};
 use ggez::event::MouseButton;
-use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, DrawParam, Drawable, Text};
+use ggez::graphics::{Canvas, Color, Drawable, Text};
 use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::input::mouse::CursorIcon;
 use ggez::mint::Point2;
@@ -24,7 +22,6 @@ use ggez::winit::window::{CursorGrabMode, WindowLevel};
 use ggez::*;
 use rand::prelude::*;
 use std::collections::HashSet;
-use std::ops::{Deref, DerefMut, Div};
 use std::time::Duration;
 use std::{env, path, thread};
 
@@ -97,11 +94,11 @@ impl Assets {
             )
             .as_str(),
         );
-        let background = graphics::Image::from_path(ctx, "/background.tiff").expect(
+        let background = graphics::Image::from_path(ctx, "/background_1.tiff").expect(
             format!(
                 "Failed to load background from path {:?} {:?}",
                 ctx.fs.resources_dir(),
-                "/background.png"
+                "/background_1.tiff"
             )
             .as_str(),
         );
@@ -127,6 +124,8 @@ struct GameState {
     keys_pressed: HashSet<KeyCode>,
     kills: u64,
     alt_cd: f32,
+    a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters:
+        std::collections::HashMap<String, f32>,
 }
 fn handle_player_movement(
     player: &mut Actor,
@@ -276,7 +275,6 @@ impl event::EventHandler<GameError> for GameState {
         } else {
             self.alt_cd -= self.dt.as_millis() as f32;
         }
-        let mut player_coords = (0.0, 0.0);
         handle_player_movement(
             &mut self.player,
             &self.keys_pressed,
@@ -284,19 +282,19 @@ impl event::EventHandler<GameError> for GameState {
             screen_width,
             screen_height,
         );
-        player_coords = (self.player.x, self.player.y);
+        let player_coords = (self.player.x, self.player.y);
 
         for i in 0..self.enemy.len() {
             let (x, y) = match ctx.time.time_since_start().as_millis() {
-                (t) if t % 2000 == 0 => (player_coords.0, player_coords.1),
-                (t) if t % 1000 == 0 => {
+                t if t % 2000 == 0 => (player_coords.0, player_coords.1),
+                t if t % 1000 == 0 => {
                     // rng to determine the target position of the enemy
                     let mut rng = rand::thread_rng();
                     let x = rng.gen_range(player_coords.0..(player_coords.0 + 1000.0));
                     let y = player_coords.1;
                     (x, y)
                 }
-                (t) if t % 800 == 0 => {
+                t if t % 800 == 0 => {
                     // rng to determine the target position of the enemy
                     let mut rng = rand::thread_rng();
                     let x = rng.gen_range((player_coords.0 - 1000.0)..player_coords.0);
@@ -517,7 +515,7 @@ impl event::EventHandler<GameError> for GameState {
         let alt_cd = Text::new(format!("Power Atk CD: {:.2}ms", self.alt_cd));
         alt_cd.draw(&mut canvas, Point2::from([1700.0, 70.0]));
 
-        // canvas.draw(&self.assets.background, Point2::from([0.0, 0.0]));
+        canvas.draw(&self.assets.background, Point2::from([0.0, 0.0]));
         if self.player.hp <= 0.0 {
             let mut game_over_text = Text::new("Game Over");
             game_over_text.set_scale(50.0);
@@ -533,13 +531,13 @@ impl event::EventHandler<GameError> for GameState {
             .bounding_box
             .draw(&mut canvas, Point2::from([self.player.x, self.player.y]));
 
-        &self.enemy.iter().for_each(|enemy| {
+        let _ = &self.enemy.iter().for_each(|enemy| {
             enemy
                 .bounding_box
                 .draw(&mut canvas, Point2::from([enemy.x, enemy.y]));
         });
 
-        &self.projectiles.iter().for_each(|projectile| {
+        let _ = &self.projectiles.iter().for_each(|projectile| {
             projectile
                 .bounding_box
                 .draw(&mut canvas, Point2::from([projectile.x, projectile.y]));
@@ -552,6 +550,10 @@ impl event::EventHandler<GameError> for GameState {
                 Ok(_) => (),
                 Err(e) => println!("Error playing bgm: {:?}", e),
             }
+        }
+        if self.kills > 30 && self.kills < 60 {
+            let alert_text = Text::new(format!("Special Attack Unlocked! (RMB)"));
+            alert_text.draw(&mut canvas, Point2::from([800.0, 30.0]));
         }
 
         canvas.finish(ctx)
@@ -590,7 +592,7 @@ impl event::EventHandler<GameError> for GameState {
                     modifier = None;
                 }
                 match self.kills {
-                    (kills) if kills > 40 => {
+                    kills if kills > 40 => {
                         let mut split_projectiles = vec![];
                         for i in 0..5 {
                             match i {
@@ -661,7 +663,7 @@ impl event::EventHandler<GameError> for GameState {
                         }
                         Some(split_projectiles)
                     }
-                    (kills) if kills > 20 => {
+                    kills if kills > 20 => {
                         let mut split_projectiles = vec![];
                         for i in 0..3 {
                             match i {
@@ -733,7 +735,7 @@ impl event::EventHandler<GameError> for GameState {
             }
             MouseButton::Right => {
                 let alt_projectile: Option<Actor> = match self.alt_cd {
-                    0.0 => {
+                    cd if cd <= 0.0 => {
                         if self.kills < 30 {
                             None
                         } else {
@@ -839,8 +841,7 @@ fn main() {
         path::PathBuf::from("./resources")
     };
 
-    let mut cb =
-        ContextBuilder::new("hello_ggez", "awesome_person").add_resource_path(resource_dir);
+    let cb = ContextBuilder::new("hello_ggez", "awesome_person").add_resource_path(resource_dir);
 
     let (mut ctx, event_loop) = cb
         .default_conf(c)
@@ -876,6 +877,8 @@ fn main() {
         keys_pressed: HashSet::new(),
         kills: 0,
         alt_cd: 0.0,
+        a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters:
+            std::collections::HashMap::new(),
     };
 
     event::run(ctx, event_loop, state);

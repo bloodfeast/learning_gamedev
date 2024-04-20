@@ -1,5 +1,5 @@
 use ggez::graphics;
-use ggez::graphics::{Color, Drawable, Mesh};
+use ggez::graphics::Color;
 use ggez::mint::Point2;
 use std::ops::Deref;
 
@@ -87,18 +87,6 @@ pub fn get_player_alt_projectile_mesh_vertices() -> Vec<Point2<f32>> {
         Point2 { x: -10.0, y: 0.0 },
         Point2 { x: -20.0, y: -10.0 },
     ]
-}
-
-impl Actor {
-    fn get_mesh_vertices(&self) -> Vec<Point2<f32>> {
-        match self.actor_type {
-            ActorType::Player => get_player_polygon_mesh_vertices(),
-            ActorType::Enemy => get_enemy_polygon_mesh_vertices(),
-            ActorType::PlayerProjectile | ActorType::EnemyProjectile => {
-                get_projectile_mesh_vertices()
-            }
-        }
-    }
 }
 
 pub fn take_damage(actor: &mut Actor, damage: &f32) -> () {
