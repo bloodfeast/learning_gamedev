@@ -498,6 +498,35 @@ impl event::EventHandler<GameError> for GameState {
         let fps = Text::new(format!("FPS: {:.2}", ctx.time.fps()));
         let mut kill_count = Text::new(format!("Kills: {}", self.kills));
 
+        let mut background_pos = *self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+            .get("background_tile_1_y_pos").get_or_insert(&0.0);
+        let binding = (&0.0 + &(self.assets.background.height() as f32));
+        let mut background_pos_2 = *self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+            .get("background_tile_2_y_pos").get_or_insert(&binding);
+
+        let background_pos = if background_pos >= &(self.assets.background.height() as f32) {
+            10.0 - &(self.assets.background.height() as f32)
+        } else {
+            background_pos + 20.0
+        };
+
+        let background_pos_2 = if background_pos_2 >= &(self.assets.background.height() as f32) {
+            10.0 - &(self.assets.background.height() as f32)
+        } else {
+            background_pos_2 + 20.0
+        };
+
+        self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+            .insert("background_tile_1_y_pos".to_string(), background_pos);
+        self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+            .insert("background_tile_2_y_pos".to_string(), background_pos_2);
+
+        canvas.draw(&self.assets.background, Point2::from([0.0, background_pos]));
+        canvas.draw(
+            &self.assets.background,
+            Point2::from([0.0, background_pos_2]),
+        );
+
         fps.draw(&mut canvas, Point2::from([10.0, 10.0]));
         kill_count.draw(&mut canvas, Point2::from([1500.0, 30.0]));
         let mut damage_modifier = ((self.kills / 10) as f32).floor() * 1.25;
@@ -515,7 +544,6 @@ impl event::EventHandler<GameError> for GameState {
         let alt_cd = Text::new(format!("Power Atk CD: {:.2}ms", self.alt_cd));
         alt_cd.draw(&mut canvas, Point2::from([1700.0, 70.0]));
 
-        canvas.draw(&self.assets.background, Point2::from([0.0, 0.0]));
         if self.player.hp <= 0.0 {
             let mut game_over_text = Text::new("Game Over");
             game_over_text.set_scale(50.0);
@@ -524,7 +552,6 @@ impl event::EventHandler<GameError> for GameState {
             kill_count.draw(&mut canvas, Point2::from([900.0, 580.0]));
             self.enemy.drain(..);
             self.projectiles.drain(..);
-
             return canvas.finish(ctx);
         }
         self.player
@@ -601,7 +628,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 - 800.0,
-                                        far_away_target.1,
+                                        far_away_target.1 - 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -612,7 +639,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 - 400.0,
-                                        far_away_target.1,
+                                        far_away_target.1 - 200.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -634,7 +661,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 + 400.0,
-                                        far_away_target.1,
+                                        far_away_target.1 + 200.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -645,7 +672,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 + 800.0,
-                                        far_away_target.1,
+                                        far_away_target.1 + 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -672,7 +699,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 - 500.0,
-                                        far_away_target.1,
+                                        far_away_target.1 - 200.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -694,7 +721,7 @@ impl event::EventHandler<GameError> for GameState {
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
                                         far_away_target.0 + 500.0,
-                                        far_away_target.1,
+                                        far_away_target.1 + 200.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -855,8 +882,9 @@ fn main() {
     ctx.gfx.window().set_cursor_icon(CursorIcon::Crosshair);
     ctx.gfx
         .window()
-        .set_cursor_position(LogicalPosition::new(960.0, 540.0))
-        .expect("Failed to set cursor position");
+        .set_cursor_position(LogicalPosition::new(860.0, 540.0))
+        .map_err(|e| println!("Error setting cursor position: {:?}", e))
+        .unwrap_or(());
     ctx.gfx.window().set_window_level(WindowLevel::AlwaysOnTop);
     let player = create_player(900.0, 900.0, Color::WHITE, create_spaceship_mesh(&mut ctx));
     let enemy = create_enemy(
