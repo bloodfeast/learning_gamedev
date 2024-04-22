@@ -167,6 +167,16 @@ pub fn create_enemy_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
     .expect("Failed to create enemy projectile mesh");
     projectile_mesh
 }
+pub fn create_boss_enemy_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let projectile_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_player_alt_projectile_mesh_vertices().deref(),
+        Color::from_rgb(250, 100, 150),
+    )
+    .expect("Failed to create enemy projectile mesh");
+    projectile_mesh
+}
 
 pub fn create_player_alt_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
     let projectile_mesh = graphics::Mesh::new_polygon(

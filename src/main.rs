@@ -3,14 +3,14 @@ mod asset_manager;
 
 use crate::actors::enemy::{create_boss_enemy, create_enemy};
 use crate::actors::models::{
-    create_boss_enemy_spaceship_mesh, create_enemy_projectile_mesh, create_enemy_spaceship_mesh,
-    create_player_alt_projectile_mesh, create_player_projectile_mesh, create_spaceship_mesh,
-    take_damage, Actor, ActorType,
+    create_boss_enemy_projectile_mesh, create_boss_enemy_spaceship_mesh,
+    create_enemy_projectile_mesh, create_enemy_spaceship_mesh, create_player_alt_projectile_mesh,
+    create_player_projectile_mesh, create_spaceship_mesh, take_damage, Actor, ActorType,
 };
 use crate::actors::player::create_player;
 use crate::actors::projectile::{
-    create_enemy_projectile, create_player_alt_projectile, create_player_projectile,
-    handle_timed_life,
+    create_boss_enemy_projectile, create_enemy_projectile, create_player_alt_projectile,
+    create_player_projectile, handle_timed_life,
 };
 use crate::asset_manager::Assets;
 use ggez::audio::SoundSource;
@@ -267,28 +267,96 @@ impl event::EventHandler<GameError> for GameState {
                     true => (direction.0 / length, direction.1 / length),
                     false => (0.0, 0.0),
                 };
-                // Multiply the unit direction vector by a large number to get a far away target position
-                let far_away_target = (
-                    player_coords.0 + unit_direction.0 * 10000.0,
-                    player_coords.1 + unit_direction.1 * 10000.0,
-                );
-                let projectile = create_enemy_projectile(
-                    self.enemy[i].x,
-                    self.enemy[i].y,
-                    far_away_target.0,
-                    far_away_target.1,
-                    create_enemy_projectile_mesh(ctx),
-                    Some(1.0),
-                );
+                if self.enemy[i].actor_type == ActorType::BossEnemy {
+                    // Multiply the unit direction vector by a large number to get a far away target position
+                    let far_away_target = (
+                        player_coords.0 + unit_direction.0 * 1000.0,
+                        player_coords.1 + unit_direction.1 * 1000.0,
+                    );
+                    for _ in 0..5 {
+                        let projectile_type = rand::thread_rng().gen_range(0..2);
+                        match projectile_type {
+                            0 => {
+                                let projectile = create_enemy_projectile(
+                                    self.enemy[i].x,
+                                    self.enemy[i].y,
+                                    far_away_target.0,
+                                    far_away_target.1,
+                                    create_enemy_projectile_mesh(ctx),
+                                    Some(1.0),
+                                );
+                                self.assets.laser_1.set_volume(0.4);
+                                let res = self.assets.laser_1.play(ctx);
+                                match res {
+                                    Ok(_) => (),
+                                    Err(e) => println!("Error playing laser_1: {:?}", e),
+                                }
+                                self.enemy[i].attack_cooldown =
+                                    Some(thread_rng().gen_range(50.0..500.0));
+                                self.projectiles.push(projectile);
+                            }
+                            1 => {
+                                let projectile = create_boss_enemy_projectile(
+                                    self.enemy[i].x,
+                                    self.enemy[i].y,
+                                    far_away_target.0,
+                                    far_away_target.1,
+                                    create_boss_enemy_projectile_mesh(ctx),
+                                    Some(1.0),
+                                );
+                                self.assets.laser_1.set_volume(0.4);
+                                let res = self.assets.laser_1.play(ctx);
+                                match res {
+                                    Ok(_) => (),
+                                    Err(e) => println!("Error playing laser_1: {:?}", e),
+                                }
+                                self.enemy[i].attack_cooldown =
+                                    Some(thread_rng().gen_range(50.0..500.0));
+                                self.projectiles.push(projectile);
+                            }
+                            _ => (),
+                        }
+                        let projectile = create_enemy_projectile(
+                            self.enemy[i].x,
+                            self.enemy[i].y,
+                            far_away_target.0,
+                            far_away_target.1,
+                            create_enemy_projectile_mesh(ctx),
+                            Some(1.0),
+                        );
+                        self.assets.laser_1.set_volume(0.4);
+                        let res = self.assets.laser_1.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing laser_1: {:?}", e),
+                        }
+                        self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(50.0..500.0));
+                        self.projectiles.push(projectile);
+                    }
+                } else {
+                    // Multiply the unit direction vector by a large number to get a far away target position
+                    let far_away_target = (
+                        player_coords.0 + unit_direction.0 * 10000.0,
+                        player_coords.1 + unit_direction.1 * 10000.0,
+                    );
+                    let projectile = create_enemy_projectile(
+                        self.enemy[i].x,
+                        self.enemy[i].y,
+                        far_away_target.0,
+                        far_away_target.1,
+                        create_enemy_projectile_mesh(ctx),
+                        Some(1.0),
+                    );
 
-                self.assets.laser_1.set_volume(0.4);
-                let res = self.assets.laser_1.play(ctx);
-                match res {
-                    Ok(_) => (),
-                    Err(e) => println!("Error playing laser_1: {:?}", e),
+                    self.assets.laser_1.set_volume(0.4);
+                    let res = self.assets.laser_1.play(ctx);
+                    match res {
+                        Ok(_) => (),
+                        Err(e) => println!("Error playing laser_1: {:?}", e),
+                    }
+                    self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(500.0..5000.0));
+                    self.projectiles.push(projectile);
                 }
-                self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(500.0..5000.0));
-                self.projectiles.push(projectile);
             }
         }
         for projectile in &mut self.projectiles {
@@ -410,8 +478,7 @@ impl event::EventHandler<GameError> for GameState {
                 Some(count) => count + &1.0,
                 None => 1.0,
             };
-            let is_eligible_for_boss =
-                ctx.time.time_since_start() >= Duration::from_secs_f32(60.0) * boss_count as u32;
+            let is_eligible_for_boss = wave_count % 5.0 == 0.0;
             if is_eligible_for_boss {
                 is_boss_round = true;
                 self.enemy.push(create_boss_enemy(
@@ -427,7 +494,7 @@ impl event::EventHandler<GameError> for GameState {
                     .insert("boss_count".to_string(), boss_count);
             }
             if !is_boss_round {
-                for _ in 0..(self.kills as f32 * 1.25).ceil() as u32 {
+                for _ in 0..(wave_count * 1.75).ceil() as u32 {
                     let mut rng = rand::thread_rng();
                     let mut x_nums: Vec<i32> = (0..1800).collect();
                     let mut y_nums: Vec<i32> = (100..900).collect();

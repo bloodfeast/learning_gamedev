@@ -77,3 +77,27 @@ pub fn create_enemy_projectile(
         attack_cooldown: None,
     }
 }
+
+pub fn create_boss_enemy_projectile(
+    x: f32,
+    y: f32,
+    target_x: f32,
+    target_y: f32,
+    mesh: Mesh,
+    damage_modifier: Option<f32>,
+) -> Actor {
+    let damage = 10.0 * damage_modifier.unwrap_or(1.0);
+    Actor {
+        actor_type: ActorType::EnemyProjectile,
+        x,
+        y,
+        target_x,
+        target_y,
+        velocity: 400.0,
+        color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
+        hp: damage,
+        bounding_box: mesh,
+        is_taking_damage: None,
+        attack_cooldown: None,
+    }
+}
