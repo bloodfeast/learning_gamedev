@@ -23,7 +23,7 @@ use ggez::*;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::time::Duration;
-use std::{env, path, thread};
+use std::{env, path};
 
 struct Assets {
     bgm: audio::Source,
@@ -124,8 +124,7 @@ struct GameState {
     keys_pressed: HashSet<KeyCode>,
     kills: u64,
     alt_cd: f32,
-    a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters:
-        std::collections::HashMap<String, f32>,
+    game_state_data: std::collections::HashMap<String, f32>,
 }
 fn handle_player_movement(
     player: &mut Actor,
@@ -489,36 +488,36 @@ impl event::EventHandler<GameError> for GameState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let current_monitor = ctx.gfx.window().current_monitor();
-        let refresh_rate = current_monitor.unwrap().refresh_rate_millihertz().unwrap();
         let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
-        thread::sleep(std::time::Duration::from_millis(
-            1000 / (refresh_rate as u64),
-        ));
         let fps = Text::new(format!("FPS: {:.2}", ctx.time.fps()));
         let mut kill_count = Text::new(format!("Kills: {}", self.kills));
 
-        let mut background_pos = *self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
-            .get("background_tile_1_y_pos").get_or_insert(&0.0);
-        let binding = (&0.0 + &(self.assets.background.height() as f32));
-        let mut background_pos_2 = *self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
-            .get("background_tile_2_y_pos").get_or_insert(&binding);
+        let background_pos = *self
+            .game_state_data
+            .get("background_tile_1_y_pos")
+            .get_or_insert(&0.0);
+        let binding = &0.0 + &(self.assets.background.height() as f32);
+        let background_pos_2 = *self
+            .game_state_data
+            .get("background_tile_2_y_pos")
+            .get_or_insert(&binding);
 
-        let background_pos = if background_pos >= &(self.assets.background.height() as f32) {
-            10.0 - &(self.assets.background.height() as f32)
-        } else {
-            background_pos + 20.0
-        };
+        fn get_background_pos(background_pos: &f32, background_height: f32) -> f32 {
+            if background_pos >= &background_height {
+                20.0 - &background_height
+            } else {
+                background_pos + 20.0
+            }
+        }
 
-        let background_pos_2 = if background_pos_2 >= &(self.assets.background.height() as f32) {
-            10.0 - &(self.assets.background.height() as f32)
-        } else {
-            background_pos_2 + 20.0
-        };
+        let background_pos =
+            get_background_pos(&background_pos, self.assets.background.height() as f32);
+        let background_pos_2 =
+            get_background_pos(&background_pos_2, self.assets.background.height() as f32);
 
-        self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+        self.game_state_data
             .insert("background_tile_1_y_pos".to_string(), background_pos);
-        self.a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters
+        self.game_state_data
             .insert("background_tile_2_y_pos".to_string(), background_pos_2);
 
         canvas.draw(&self.assets.background, Point2::from([0.0, background_pos]));
@@ -595,6 +594,9 @@ impl event::EventHandler<GameError> for GameState {
     ) -> Result<(), GameError> {
         // Create a player projectile when the space key is pressed
         let player = &self.player;
+        if player.hp <= 0.0 {
+            return Ok(());
+        }
         // Calculate the direction vector from the player's current position to the mouse position
         let direction = ((x - player.x), (y - player.y));
         // Calculate the length of the direction vector
@@ -875,16 +877,24 @@ fn main() {
         .build()
         .expect("Failed to build ggez context");
 
-    ctx.gfx
-        .window()
-        .set_cursor_grab(CursorGrabMode::Confined)
-        .expect("Failed to set cursor grab mode");
+    let res = ctx.gfx.window().set_cursor_grab(CursorGrabMode::Confined);
+    res.is_err().then(|| {
+        println!(
+            "Error setting cursor position: {:?} (you can ignore this error)",
+            res
+        )
+    });
     ctx.gfx.window().set_cursor_icon(CursorIcon::Crosshair);
-    ctx.gfx
+    let res = ctx
+        .gfx
         .window()
-        .set_cursor_position(LogicalPosition::new(860.0, 540.0))
-        .map_err(|e| println!("Error setting cursor position: {:?}", e))
-        .unwrap_or(());
+        .set_cursor_position(LogicalPosition::new(860.0, 540.0));
+    res.is_err().then(|| {
+        println!(
+            "Error setting cursor position: {:?} (you can ignore this error)",
+            res
+        )
+    });
     ctx.gfx.window().set_window_level(WindowLevel::AlwaysOnTop);
     let player = create_player(900.0, 900.0, Color::WHITE, create_spaceship_mesh(&mut ctx));
     let enemy = create_enemy(
@@ -895,9 +905,16 @@ fn main() {
         None,
         None,
     );
-    let assets = Assets::new(&mut ctx).unwrap();
+    let assets = Assets::new(&mut ctx);
+    let assets = match assets {
+        Ok(assets) => assets,
+        Err(e) => {
+            println!("Error loading assets: {:?}", e);
+            std::process::exit(1);
+        }
+    };
     let state = GameState {
-        dt: std::time::Duration::new(0, 0),
+        dt: Duration::new(0, 0),
         assets,
         player,
         enemy: vec![enemy],
@@ -905,8 +922,7 @@ fn main() {
         keys_pressed: HashSet::new(),
         kills: 0,
         alt_cd: 0.0,
-        a_really_useful_data_structure_for_storing_stuff_almost_like_a_map_where_you_can_get_things_and_store_things_by_some_kind_of_key_that_is_a_hashed_representation_of_a_string_of_characters:
-            std::collections::HashMap::new(),
+        game_state_data: std::collections::HashMap::new(),
     };
 
     event::run(ctx, event_loop, state);
