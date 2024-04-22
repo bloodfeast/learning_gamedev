@@ -7,6 +7,7 @@ use std::ops::Deref;
 pub enum ActorType {
     Player,
     Enemy,
+    BossEnemy,
     PlayerProjectile,
     EnemyProjectile,
 }
@@ -65,6 +66,25 @@ pub fn get_enemy_polygon_mesh_vertices() -> Vec<Point2<f32>> {
         Point2 { x: 0.0, y: 25.0 },
     ]
 }
+pub fn get_boss_enemy_polygon_mesh_vertices() -> Vec<Point2<f32>> {
+    vec![
+        Point2 { x: 0.0, y: 35.0 },
+        Point2 { x: 12.0, y: 35.0 },
+        Point2 { x: 16.0, y: 36.0 },
+        Point2 { x: 20.0, y: 26.0 },
+        Point2 { x: 26.0, y: 18.0 },
+        Point2 { x: 14.0, y: 22.0 },
+        Point2 { x: 14.0, y: 20.0 },
+        // middle
+        Point2 { x: -14.0, y: 20.0 },
+        Point2 { x: -14.0, y: 22.0 },
+        Point2 { x: -26.0, y: 18.0 },
+        Point2 { x: -20.0, y: 26.0 },
+        Point2 { x: -14.0, y: 36.0 },
+        Point2 { x: -12.0, y: 35.0 },
+        Point2 { x: 0.0, y: 35.0 },
+    ]
+}
 
 pub fn get_projectile_mesh_vertices() -> Vec<Point2<f32>> {
     vec![
@@ -110,6 +130,17 @@ pub fn create_enemy_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
         graphics::DrawMode::fill(),
         get_enemy_polygon_mesh_vertices().deref(),
         Color::from_rgb(200, 100, 100),
+    )
+    .expect("Failed to create enemy spaceship mesh");
+    player_mesh
+}
+
+pub fn create_boss_enemy_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
+    let player_mesh = graphics::Mesh::new_polygon(
+        ctx,
+        graphics::DrawMode::fill(),
+        get_boss_enemy_polygon_mesh_vertices().deref(),
+        Color::from_rgb(200, 50, 30),
     )
     .expect("Failed to create enemy spaceship mesh");
     player_mesh

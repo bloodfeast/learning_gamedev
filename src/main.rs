@@ -1,15 +1,18 @@
 mod actors;
+mod asset_manager;
 
-use crate::actors::enemy::create_enemy;
+use crate::actors::enemy::{create_boss_enemy, create_enemy};
 use crate::actors::models::{
-    create_enemy_projectile_mesh, create_enemy_spaceship_mesh, create_player_alt_projectile_mesh,
-    create_player_projectile_mesh, create_spaceship_mesh, take_damage, Actor, ActorType,
+    create_boss_enemy_spaceship_mesh, create_enemy_projectile_mesh, create_enemy_spaceship_mesh,
+    create_player_alt_projectile_mesh, create_player_projectile_mesh, create_spaceship_mesh,
+    take_damage, Actor, ActorType,
 };
 use crate::actors::player::create_player;
 use crate::actors::projectile::{
     create_enemy_projectile, create_player_alt_projectile, create_player_projectile,
     handle_timed_life,
 };
+use crate::asset_manager::Assets;
 use ggez::audio::SoundSource;
 use ggez::conf::NumSamples;
 use ggez::event::MouseButton;
@@ -25,98 +28,8 @@ use std::collections::HashSet;
 use std::time::Duration;
 use std::{env, path};
 
-struct Assets {
-    bgm: audio::Source,
-    player_laser_1: audio::Source,
-    laser_1: audio::Source,
-    special_atk: audio::Source,
-    spread_shot_3: audio::Source,
-    spread_shot_5: audio::Source,
-    damage: audio::Source,
-    background: graphics::Image,
-}
-
-impl Assets {
-    fn new(ctx: &mut Context) -> GameResult<Assets> {
-        let bgm = audio::Source::new(ctx, "/Lost in Another World.mp3").expect(
-            format!(
-                "Failed to load bgm from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/Lost in Another World.mp3"
-            )
-            .as_str(),
-        );
-        let laser_1 = audio::Source::new(ctx, "/laser_1.flac").expect(
-            format!(
-                "Failed to load laser1 from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/laser1.flac"
-            )
-            .as_str(),
-        );
-        let player_laser_1 = audio::Source::new(ctx, "/player_laser_1.flac").expect(
-            format!(
-                "Failed to load player_laser1 from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/player_laser1.flac"
-            )
-            .as_str(),
-        );
-        let special_atk = audio::Source::new(ctx, "/special_atk.flac").expect(
-            format!(
-                "Failed to load special_atk from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/special_atk.flac"
-            )
-            .as_str(),
-        );
-        let spread_shot_3 = audio::Source::new(ctx, "/spread_shot_3.flac").expect(
-            format!(
-                "Failed to load spread_shot_3 from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/spread_shot_3.flac"
-            )
-            .as_str(),
-        );
-        let spread_shot_5 = audio::Source::new(ctx, "/spread_shot_5.flac").expect(
-            format!(
-                "Failed to load spread_shot_5 from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/spread_shot_5.flac"
-            )
-            .as_str(),
-        );
-        let damage = audio::Source::new(ctx, "/damage.flac").expect(
-            format!(
-                "Failed to load damage from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/damage.flac"
-            )
-            .as_str(),
-        );
-        let background = graphics::Image::from_path(ctx, "/background_1.tiff").expect(
-            format!(
-                "Failed to load background from path {:?} {:?}",
-                ctx.fs.resources_dir(),
-                "/background_1.tiff"
-            )
-            .as_str(),
-        );
-        Ok(Assets {
-            bgm,
-            player_laser_1,
-            laser_1,
-            special_atk,
-            spread_shot_3,
-            spread_shot_5,
-            damage,
-            background,
-        })
-    }
-}
-
 struct GameState {
-    dt: std::time::Duration,
+    dt: Duration,
     assets: Assets,
     player: Actor,
     enemy: Vec<Actor>,
@@ -129,7 +42,7 @@ struct GameState {
 fn handle_player_movement(
     player: &mut Actor,
     keys_pressed: &HashSet<KeyCode>,
-    dt: std::time::Duration,
+    dt: Duration,
     screen_width: f32,
     screen_height: f32,
 ) {
@@ -201,7 +114,7 @@ fn handle_player_movement(
     player.y += movement.1;
 }
 
-fn handle_enemy_movement(enemy: &mut Actor, dt: std::time::Duration) {
+fn handle_enemy_movement(enemy: &mut Actor, dt: Duration) {
     // Calculate the direction vector from the actor's current position to the target position
     let direction = ((enemy.target_x - enemy.x), (enemy.target_y - enemy.y));
 
@@ -237,7 +150,7 @@ fn handle_enemy_movement(enemy: &mut Actor, dt: std::time::Duration) {
     enemy.y += movement.1;
 }
 
-fn handle_projectile_trajectory(projectile: &mut Actor, dt: std::time::Duration) {
+fn handle_projectile_trajectory(projectile: &mut Actor, dt: Duration) {
     // Calculate the direction vector from the actor's current position to the target position
     let direction = (
         (projectile.target_x - projectile.x),
@@ -473,41 +386,76 @@ impl event::EventHandler<GameError> for GameState {
                 }
             }
             if enemy.hp <= 0.0 {
-                self.kills += 1;
+                if enemy.actor_type == ActorType::BossEnemy {
+                    self.kills += 10;
+                } else {
+                    self.kills += 1;
+                }
             }
         }
 
         self.projectiles.retain(|projectile| projectile.hp > 0.0);
         self.enemy.retain(|enemy| enemy.hp > 0.0);
         if self.enemy.is_empty() {
-            for _ in 0..(self.kills as f32 * 1.25).ceil() as u32 {
-                let mut rng = rand::thread_rng();
-                let mut x_nums: Vec<i32> = (0..1800).collect();
-                let mut y_nums: Vec<i32> = (100..900).collect();
-                x_nums.shuffle(&mut rng);
-                y_nums.shuffle(&mut rng);
-
-                x_nums.retain(|&x| {
-                    x < (player_coords.0 - 400.0) as i32 || x > (player_coords.0 + 400.0) as i32
-                });
-                y_nums.retain(|&y| {
-                    y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
-                });
-                let attack_cd = if self.kills > 1 {
-                    Some(rng.gen_range(1000.0..5000.0))
-                } else {
-                    None
-                };
-
-                let enemy = create_enemy(
-                    x_nums[0] as f32,
-                    y_nums[0] as f32,
+            let wave_count = self.game_state_data.get("wave_count");
+            let wave_count = match wave_count {
+                Some(count) => count + &1.0,
+                None => 1.0,
+            };
+            self.game_state_data
+                .insert("wave_count".to_string(), wave_count);
+            let mut is_boss_round = false;
+            let boss_count = self.game_state_data.get("boss_count");
+            let boss_count = match boss_count {
+                Some(count) => count + &1.0,
+                None => 1.0,
+            };
+            let is_eligible_for_boss =
+                ctx.time.time_since_start() >= Duration::from_secs_f32(60.0) * boss_count as u32;
+            if is_eligible_for_boss {
+                is_boss_round = true;
+                self.enemy.push(create_boss_enemy(
+                    900.0,
+                    500.0,
                     Color::RED,
-                    create_enemy_spaceship_mesh(ctx),
-                    Some(self.kills as f32 * 1.10),
-                    attack_cd,
-                );
-                self.enemy.push(enemy);
+                    wave_count,
+                    wave_count,
+                    create_boss_enemy_spaceship_mesh(ctx),
+                    Some(250_f32),
+                ));
+                self.game_state_data
+                    .insert("boss_count".to_string(), boss_count);
+            }
+            if !is_boss_round {
+                for _ in 0..(self.kills as f32 * 1.25).ceil() as u32 {
+                    let mut rng = rand::thread_rng();
+                    let mut x_nums: Vec<i32> = (0..1800).collect();
+                    let mut y_nums: Vec<i32> = (100..900).collect();
+                    x_nums.shuffle(&mut rng);
+                    y_nums.shuffle(&mut rng);
+
+                    x_nums.retain(|&x| {
+                        x < (player_coords.0 - 400.0) as i32 || x > (player_coords.0 + 400.0) as i32
+                    });
+                    y_nums.retain(|&y| {
+                        y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
+                    });
+                    let attack_cd = if self.kills > 1 {
+                        Some(rng.gen_range(1000.0..5000.0))
+                    } else {
+                        None
+                    };
+
+                    let enemy = create_enemy(
+                        x_nums[0] as f32,
+                        y_nums[0] as f32,
+                        Color::RED,
+                        create_enemy_spaceship_mesh(ctx),
+                        Some(self.kills as f32 * 1.10),
+                        attack_cd,
+                    );
+                    self.enemy.push(enemy);
+                }
             }
         }
 
@@ -604,7 +552,7 @@ impl event::EventHandler<GameError> for GameState {
                 Err(e) => println!("Error playing bgm: {:?}", e),
             }
         }
-        if self.kills > 30 && self.kills < 60 {
+        if self.kills > 30 && self.kills < 50 {
             let alert_text = Text::new(format!("Special Attack Unlocked! (RMB)"));
             alert_text.draw(&mut canvas, Point2::from([800.0, 30.0]));
         }
