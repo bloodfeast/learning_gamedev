@@ -312,7 +312,14 @@ impl event::EventHandler<GameError> for GameState {
                     let distance = ((self.enemy[i].x - other_enemy.x).powi(2)
                         + (self.enemy[i].y - other_enemy.y).powi(2))
                     .sqrt();
-                    if distance < self.enemy[i].bounding_box.dimensions(ctx).unwrap().w + 20.0 {
+                    if distance
+                        < self.enemy[i]
+                            .bounding_box
+                            .dimensions(ctx)
+                            .expect("Failed to get bounding box dimensions")
+                            .w
+                            + 20.0
+                    {
                         // Calculate the direction vector from other_enemy to enemy
                         let direction = (
                             self.enemy[i].x - other_enemy.x,
@@ -389,7 +396,14 @@ impl event::EventHandler<GameError> for GameState {
         for enemy in &mut self.enemy {
             let distance =
                 ((enemy.x - self.player.x).powi(2) + (enemy.y - self.player.y).powi(2)).sqrt();
-            if distance < self.player.bounding_box.dimensions(ctx).unwrap().w {
+            if distance
+                < self
+                    .player
+                    .bounding_box
+                    .dimensions(ctx)
+                    .expect("Failed to get bounding box dimensions")
+                    .w
+            {
                 let player_hp = self.player.hp.clone();
                 let enemy_hp = &enemy.hp.clone();
                 take_damage(&mut self.player, enemy_hp);
@@ -409,7 +423,14 @@ impl event::EventHandler<GameError> for GameState {
             let distance = ((projectile.x - self.player.x).powi(2)
                 + (projectile.y - self.player.y).powi(2))
             .sqrt();
-            if distance < self.player.bounding_box.dimensions(ctx).unwrap().w {
+            if distance
+                < self
+                    .player
+                    .bounding_box
+                    .dimensions(ctx)
+                    .expect("Failed to get bounding box dimensions")
+                    .w
+            {
                 if projectile.actor_type == ActorType::EnemyProjectile {
                     let hp = self.player.hp;
                     take_damage(&mut self.player, &projectile.hp);
@@ -436,7 +457,13 @@ impl event::EventHandler<GameError> for GameState {
                 }
                 let distance =
                     ((projectile.x - enemy.x).powi(2) + (projectile.y - enemy.y).powi(2)).sqrt();
-                if distance < enemy.bounding_box.dimensions(ctx).unwrap().w {
+                if distance
+                    < enemy
+                        .bounding_box
+                        .dimensions(ctx)
+                        .expect("Failed to get bounding box dimensions")
+                        .w
+                {
                     let hp = enemy.hp.clone();
                     take_damage(enemy, &projectile.hp);
                     projectile.hp -= hp;
@@ -617,7 +644,10 @@ impl event::EventHandler<GameError> for GameState {
         let projectiles: Option<Vec<Actor>> = match button {
             MouseButton::Left => {
                 let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.5);
-                if modifier.unwrap() == 0.0 {
+                if modifier.expect(
+                    "Failed to get damage modifier for player projectile. This should never happen",
+                ) == 0.0
+                {
                     modifier = None;
                 }
                 match self.kills {
@@ -774,7 +804,10 @@ impl event::EventHandler<GameError> for GameState {
                             let projectile_spawn_x_offset =
                                 if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
                             let mut modifier = Some(((self.kills / 30) as f32).floor() * 100.0);
-                            if modifier.unwrap() == 0.0 {
+                            if modifier
+                                .expect(
+                                    "Failed to get modifier. This should never happen as the modifier is checked for None",
+                                ) == 0.0 {
                                 modifier = Some(100.0);
                             }
 
@@ -846,7 +879,12 @@ impl event::EventHandler<GameError> for GameState {
         if key_input.keycode.is_none() {
             return Ok(());
         }
-        self.keys_pressed.remove(&key_input.keycode.unwrap());
+        self.keys_pressed.remove(
+            &key_input
+                .keycode
+                .expect(
+                    "Failed to get keycode from key input. This should never happen as the keycode is checked for None"
+                ));
         Ok(())
     }
 }

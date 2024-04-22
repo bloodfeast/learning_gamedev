@@ -100,7 +100,7 @@ pub fn create_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
         get_player_polygon_mesh_vertices().deref(),
         Color::from_rgb(150, 200, 150),
     )
-    .unwrap();
+    .expect("Failed to create spaceship mesh");
     player_mesh
 }
 
@@ -111,7 +111,7 @@ pub fn create_enemy_spaceship_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
         get_enemy_polygon_mesh_vertices().deref(),
         Color::from_rgb(200, 100, 100),
     )
-    .unwrap();
+    .expect("Failed to create enemy spaceship mesh");
     player_mesh
 }
 
@@ -122,7 +122,7 @@ pub fn create_player_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh 
         get_projectile_mesh_vertices().deref(),
         Color::from_rgb(50, 200, 250),
     )
-    .unwrap();
+    .expect("Failed to create player projectile mesh");
     projectile_mesh
 }
 
@@ -133,7 +133,7 @@ pub fn create_enemy_projectile_mesh(ctx: &mut ggez::Context) -> graphics::Mesh {
         get_projectile_mesh_vertices().deref(),
         Color::from_rgb(250, 100, 150),
     )
-    .unwrap();
+    .expect("Failed to create enemy projectile mesh");
     projectile_mesh
 }
 
@@ -144,6 +144,6 @@ pub fn create_player_alt_projectile_mesh(ctx: &mut ggez::Context) -> graphics::M
         get_player_alt_projectile_mesh_vertices().deref(),
         Color::from_rgba(50, 210, 220, 200),
     )
-    .unwrap();
+    .expect("Failed to create player alt projectile mesh");
     projectile_mesh
 }
