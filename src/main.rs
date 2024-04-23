@@ -311,18 +311,18 @@ impl event::EventHandler<GameError> for GameState {
                                     create_boss_enemy_projectile_mesh(ctx),
                                     Some(5.0),
                                 );
-                                self.assets.laser_1.set_volume(0.4);
-                                let res = self.assets.laser_1.play(ctx);
+                                self.assets.special_atk.set_volume(0.4);
+                                let res = self.assets.special_atk.play(ctx);
                                 match res {
                                     Ok(_) => (),
-                                    Err(e) => println!("Error playing laser_1: {:?}", e),
+                                    Err(e) => println!("Error special atk sound: {:?}", e),
                                 }
                                 self.projectiles.push(projectile);
                             }
                             _ => (),
                         }
                     }
-                    self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(50.0..250.0));
+                    self.enemy[i].attack_cooldown = Some(100.0);
                 } else {
                     // Multiply the unit direction vector by a large number to get a far away target position
                     let far_away_target = (
@@ -475,7 +475,7 @@ impl event::EventHandler<GameError> for GameState {
                     900.0,
                     500.0,
                     Color::RED,
-                    wave_count * 1.25,
+                    wave_count * 1.75,
                     wave_count * 1.25,
                     create_boss_enemy_spaceship_mesh(ctx),
                     Some(100_f32),
