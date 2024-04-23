@@ -257,8 +257,14 @@ impl event::EventHandler<GameError> for GameState {
             handle_enemy_movement(&mut self.enemy[i], self.dt);
 
             if self.enemy[i].attack_cooldown == Some(0.0) {
-                let aim_x = player_coords.0 + rand::thread_rng().gen_range(-420.0..420.0);
-                let aim_y = player_coords.1 + rand::thread_rng().gen_range(-420.0..420.0);
+                let mut aim_x = player_coords.0 + rand::thread_rng().gen_range(-420.0..420.0);
+                let mut aim_y = player_coords.1 + rand::thread_rng().gen_range(-420.0..420.0);
+
+                if self.enemy[i].actor_type == ActorType::BossEnemy {
+                    aim_x = player_coords.0 + rand::thread_rng().gen_range(-69.0..69.0);
+                    aim_y = player_coords.1 + rand::thread_rng().gen_range(-69.0..69.0);
+                }
+
                 let direction = ((aim_x - self.enemy[i].x), (aim_y - self.enemy[i].y));
                 // Calculate the length of the direction vector
                 let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
