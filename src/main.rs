@@ -279,7 +279,11 @@ impl event::EventHandler<GameError> for GameState {
                         None => 5.0,
                     };
                     for _ in 0..=boss_kills as u32 {
-                        let projectile_type = rand::thread_rng().gen_range(0..2);
+                        let projectile_type = rand::thread_rng().gen_range(0..1000) % 2;
+                        let projectile_type = match projectile_type {
+                            0 => 0,
+                            _ => 1,
+                        }; // 0 = enemy projectile, 1 = boss enemy projectile (stronger)
                         match projectile_type {
                             0 => {
                                 let projectile = create_enemy_projectile(
@@ -471,10 +475,10 @@ impl event::EventHandler<GameError> for GameState {
                     900.0,
                     500.0,
                     Color::RED,
-                    wave_count,
-                    wave_count,
+                    wave_count * 1.25,
+                    wave_count * 1.25,
                     create_boss_enemy_spaceship_mesh(ctx),
-                    Some(250_f32),
+                    Some(100_f32),
                 ));
                 self.game_state_data
                     .insert("boss_count".to_string(), boss_count);
@@ -493,6 +497,9 @@ impl event::EventHandler<GameError> for GameState {
                     y_nums.retain(|&y| {
                         y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
                     });
+                    if x_nums.is_empty() || y_nums.is_empty() {
+                        continue;
+                    }
                     let attack_cd = if self.kills > 1 {
                         Some(rng.gen_range(1000.0..5000.0))
                     } else {
@@ -652,7 +659,7 @@ impl event::EventHandler<GameError> for GameState {
                     modifier = None;
                 }
                 match self.kills {
-                    kills if kills > 40 => {
+                    kills if kills > 50 => {
                         let mut split_projectiles = vec![];
                         for i in 0..5 {
                             match i {
@@ -660,8 +667,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 800.0,
-                                        far_away_target.1 - 400.0,
+                                        far_away_target.0 - 1600.0,
+                                        far_away_target.1 - 800.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -671,8 +678,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 400.0,
-                                        far_away_target.1 - 200.0,
+                                        far_away_target.0 - 800.0,
+                                        far_away_target.1 - 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -693,8 +700,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 400.0,
-                                        far_away_target.1 + 200.0,
+                                        far_away_target.0 + 800.0,
+                                        far_away_target.1 + 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -704,8 +711,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 800.0,
-                                        far_away_target.1 + 400.0,
+                                        far_away_target.0 + 1600.0,
+                                        far_away_target.1 + 800.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -723,7 +730,7 @@ impl event::EventHandler<GameError> for GameState {
                         }
                         Some(split_projectiles)
                     }
-                    kills if kills > 20 => {
+                    kills if kills > 15 => {
                         let mut split_projectiles = vec![];
                         for i in 0..3 {
                             match i {
@@ -731,8 +738,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 500.0,
-                                        far_away_target.1 - 200.0,
+                                        far_away_target.0 - 1000.0,
+                                        far_away_target.1 - 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
@@ -753,8 +760,8 @@ impl event::EventHandler<GameError> for GameState {
                                     let projectile = create_player_projectile(
                                         player.x + projectile_spawn_x_offset,
                                         player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 500.0,
-                                        far_away_target.1 + 200.0,
+                                        far_away_target.0 + 1000.0,
+                                        far_away_target.1 + 400.0,
                                         create_player_projectile_mesh(ctx),
                                         modifier,
                                     );
