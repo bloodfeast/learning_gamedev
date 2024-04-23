@@ -279,11 +279,11 @@ impl event::EventHandler<GameError> for GameState {
                         None => 5.0,
                     };
                     for _ in 0..=boss_kills as u32 {
-                        let projectile_type = rand::thread_rng().gen_range(0..1000) % 2;
+                        let projectile_type = rand::thread_rng().gen_range(0..1000);
                         let projectile_type = match projectile_type {
-                            0 => 0,
+                            0..=500 => 0,
                             _ => 1,
-                        }; // 0 = enemy projectile, 1 = boss enemy projectile (stronger)
+                        }; // 50% chance of firing a different projectile
                         match projectile_type {
                             0 => {
                                 let projectile = create_enemy_projectile(
@@ -309,7 +309,7 @@ impl event::EventHandler<GameError> for GameState {
                                     far_away_target.0,
                                     far_away_target.1,
                                     create_boss_enemy_projectile_mesh(ctx),
-                                    Some(1.0),
+                                    Some(5.0),
                                 );
                                 self.assets.laser_1.set_volume(0.4);
                                 let res = self.assets.laser_1.play(ctx);
