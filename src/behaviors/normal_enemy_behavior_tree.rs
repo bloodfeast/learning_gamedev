@@ -1,16 +1,18 @@
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, EnemyBehaviors, Node, NodeTrait};
 
-const NORMAL_ENEMY_BEHAVIOR_TREE: EnemyBehaviors = EnemyBehaviors {
-    root: Node::new(0, Behavior::Idle, None, Some((1, 2))),
-    nodes: vec![
-        Node::new(1, Behavior::MoveToRandom, Some(0), Some((3, 4))),
-        Node::new(2, Behavior::MoveToPlayer, Some(0), Some((5, 6))),
-        Node::new(3, Behavior::AttackRandom, Some(1), None),
-        Node::new(4, Behavior::MoveToPlayer, Some(1), None),
-        Node::new(5, Behavior::MoveToRandom, Some(2), None),
-        Node::new(6, Behavior::AttackPlayer, Some(2), None),
-    ],
-};
+fn get_normal_behaviors() -> EnemyBehaviors {
+    EnemyBehaviors {
+        root: Node::new(0, Behavior::Idle, None, Some((1, 2))),
+        nodes: vec![
+            Node::new(1, Behavior::MoveToRandom, Some(0), Some((3, 4))),
+            Node::new(2, Behavior::MoveToPlayer, Some(0), Some((5, 6))),
+            Node::new(3, Behavior::AttackRandom, Some(1), None),
+            Node::new(4, Behavior::MoveToPlayer, Some(1), None),
+            Node::new(5, Behavior::MoveToRandom, Some(2), None),
+            Node::new(6, Behavior::AttackPlayer, Some(2), None),
+        ],
+    }
+}
 
 pub struct NormalEnemyBehaviorTree {
     root: Node,
@@ -21,8 +23,8 @@ pub struct NormalEnemyBehaviorTree {
 impl BehaviorTreeTrait for NormalEnemyBehaviorTree {
     fn new() -> NormalEnemyBehaviorTree {
         NormalEnemyBehaviorTree {
-            root: NORMAL_ENEMY_BEHAVIOR_TREE.root.clone(),
-            nodes: NORMAL_ENEMY_BEHAVIOR_TREE.nodes.clone(),
+            root: get_normal_behaviors().root.clone(),
+            nodes: get_normal_behaviors().nodes.clone(),
             current_node: 0,
         }
     }
@@ -49,7 +51,7 @@ impl BehaviorTreeTrait for NormalEnemyBehaviorTree {
         None
     }
 
-    fn get_node_name(&self, node_id: u32) -> Option<String> {
+    fn get_node_name(&self, node_id: u32) -> Option<Behavior> {
         for node in &self.nodes {
             if node.get_id() == node_id {
                 return Some(node.get_name());

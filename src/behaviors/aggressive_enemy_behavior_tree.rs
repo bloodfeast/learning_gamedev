@@ -1,16 +1,18 @@
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, EnemyBehaviors, Node, NodeTrait};
 
-const AGGRESSIVE_ENEMY_BEHAVIOR_TREE: EnemyBehaviors = EnemyBehaviors {
-    root: Node::new(0, Behavior::Idle, None, Some((1, 2))),
-    nodes: vec![
-        Node::new(1, Behavior::MoveToPlayer, Some(0), Some((3, 4))),
-        Node::new(2, Behavior::AttackPlayer, Some(0), Some((5, 6))),
-        Node::new(3, Behavior::MoveToRandom, Some(1), None),
-        Node::new(4, Behavior::AttackPlayer, Some(1), None),
-        Node::new(5, Behavior::MoveToPlayer, Some(2), None),
-        Node::new(6, Behavior::AttackPlayer, Some(2), None),
-    ],
-};
+fn get_aggressive_enemy_behaviors() -> EnemyBehaviors {
+    EnemyBehaviors {
+        root: Node::new(0, Behavior::Idle, None, Some((1, 2))),
+        nodes: vec![
+            Node::new(1, Behavior::MoveToPlayer, Some(0), Some((3, 4))),
+            Node::new(2, Behavior::AttackPlayer, Some(0), Some((5, 6))),
+            Node::new(3, Behavior::MoveToRandom, Some(1), None),
+            Node::new(4, Behavior::AttackPlayer, Some(1), None),
+            Node::new(5, Behavior::MoveToPlayer, Some(2), None),
+            Node::new(6, Behavior::AttackPlayer, Some(2), None),
+        ],
+    }
+}
 pub struct AggressiveEnemyBehaviorTree {
     root: Node,
     nodes: Vec<Node>,
@@ -20,8 +22,8 @@ pub struct AggressiveEnemyBehaviorTree {
 impl BehaviorTreeTrait for AggressiveEnemyBehaviorTree {
     fn new() -> AggressiveEnemyBehaviorTree {
         AggressiveEnemyBehaviorTree {
-            root: AGGRESSIVE_ENEMY_BEHAVIOR_TREE.root.clone(),
-            nodes: AGGRESSIVE_ENEMY_BEHAVIOR_TREE.nodes.clone(),
+            root: get_aggressive_enemy_behaviors().root.clone(),
+            nodes: get_aggressive_enemy_behaviors().nodes.clone(),
             current_node: 0,
         }
     }
@@ -48,7 +50,7 @@ impl BehaviorTreeTrait for AggressiveEnemyBehaviorTree {
         None
     }
 
-    fn get_node_name(&self, node_id: u32) -> Option<String> {
+    fn get_node_name(&self, node_id: u32) -> Option<Behavior> {
         for node in &self.nodes {
             if node.get_id() == node_id {
                 return Some(node.get_name());

@@ -1,19 +1,19 @@
+use crate::behaviors::elusive_enemy_behavior_tree::ElusiveEnemyBehaviorTree;
 use crate::behaviors::enemy_ai::model::{get_next_child_actions, ActionResult, BehaviorAction};
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
-use crate::behaviors::normal_enemy_behavior_tree::NormalEnemyBehaviorTree;
 use anyhow::Result;
 use rand::Rng;
 use std::collections::BinaryHeap;
 
-struct NormalEnemyAI {
-    behavior_tree: NormalEnemyBehaviorTree,
+pub struct ElusiveEnemyAI {
+    behavior_tree: ElusiveEnemyBehaviorTree,
     current_action: BehaviorAction,
     action_heap: BinaryHeap<BehaviorAction>,
 }
 
-impl NormalEnemyAI {
+impl ElusiveEnemyAI {
     fn new() -> Self {
-        let behavior_tree = NormalEnemyBehaviorTree::new();
+        let behavior_tree = ElusiveEnemyBehaviorTree::new();
         let current_action = BehaviorAction {
             behavior: behavior_tree.get_root().get_name(),
             node_id: behavior_tree.get_root().get_id(),
@@ -30,7 +30,7 @@ impl NormalEnemyAI {
                 action_heap.push(action.clone());
             });
 
-        NormalEnemyAI {
+        ElusiveEnemyAI {
             behavior_tree,
             current_action,
             action_heap,
@@ -42,7 +42,8 @@ impl NormalEnemyAI {
         current_time: u128,
         player_position: (f32, f32),
         enemy_position: (f32, f32),
-    ) -> Result<ActionResult, anyhow::Error> {
+        speed: f32,
+    ) -> Result<ActionResult> {
         let mut result = ActionResult {
             enemy_position,
             enemy_target: player_position,
@@ -65,22 +66,31 @@ impl NormalEnemyAI {
                     );
                     result.enemy_position = (x, y);
                 }
-                Behavior::MoveToPlayer => {
-                    let x = player_position.0;
-                    let y = player_position.1;
-                    result.enemy_position = (x, y);
+                Behavior::RunAway => {
+                    // Calculate the vector from the enemy to the player
+                    let dx = player_position.0 - enemy_position.0;
+                    let dy = player_position.1 - enemy_position.1;
+
+                    // Normalize the vector to get the direction
+                    let magnitude = (dx.powf(2.0) + dy.powf(2.0)).sqrt();
+                    let direction = (dx / magnitude, dy / magnitude);
+
+                    // Move the enemy in the opposite direction
+                    result.enemy_position = (
+                        enemy_position.0 - direction.0 * speed,
+                        enemy_position.1 - direction.1 * speed,
+                    );
                 }
-                Behavior::AttackRandom => {
+                Behavior::Dodge => {
+                    // Generate a random angle and distance
                     let mut rng = rand::thread_rng();
-                    let x = rng.gen_range(
-                        (player_position.0 - 500.0).min(0.0)
-                            ..(player_position.0 + 500.0).max(1920.0),
-                    );
-                    let y = rng.gen_range(
-                        (player_position.1 - 500.0).min(0.0)
-                            ..(player_position.1 + 500.0).max(1080.0),
-                    );
-                    result.enemy_target = (x, y);
+                    let angle = rng.gen_range(0.0..2.0 * std::f32::consts::PI);
+                    let distance = rng.gen_range(0.0..500.0); // Set this to the desired dodge distance
+
+                    // Calculate the new position
+                    let dx = distance * angle.cos();
+                    let dy = distance * angle.sin();
+                    result.enemy_position = (enemy_position.0 + dx, enemy_position.1 + dy);
                 }
                 Behavior::AttackPlayer => {
                     let x = player_position.0;

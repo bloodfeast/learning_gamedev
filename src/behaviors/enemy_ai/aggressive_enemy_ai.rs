@@ -1,19 +1,19 @@
+use crate::behaviors::aggressive_enemy_behavior_tree::AggressiveEnemyBehaviorTree;
 use crate::behaviors::enemy_ai::model::{get_next_child_actions, ActionResult, BehaviorAction};
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
-use crate::behaviors::normal_enemy_behavior_tree::NormalEnemyBehaviorTree;
 use anyhow::Result;
 use rand::Rng;
 use std::collections::BinaryHeap;
 
-struct NormalEnemyAI {
-    behavior_tree: NormalEnemyBehaviorTree,
+pub struct AggressiveEnemyAI {
+    behavior_tree: AggressiveEnemyBehaviorTree,
     current_action: BehaviorAction,
     action_heap: BinaryHeap<BehaviorAction>,
 }
 
-impl NormalEnemyAI {
+impl AggressiveEnemyAI {
     fn new() -> Self {
-        let behavior_tree = NormalEnemyBehaviorTree::new();
+        let behavior_tree = AggressiveEnemyBehaviorTree::new();
         let current_action = BehaviorAction {
             behavior: behavior_tree.get_root().get_name(),
             node_id: behavior_tree.get_root().get_id(),
@@ -30,7 +30,7 @@ impl NormalEnemyAI {
                 action_heap.push(action.clone());
             });
 
-        NormalEnemyAI {
+        AggressiveEnemyAI {
             behavior_tree,
             current_action,
             action_heap,
@@ -42,7 +42,7 @@ impl NormalEnemyAI {
         current_time: u128,
         player_position: (f32, f32),
         enemy_position: (f32, f32),
-    ) -> Result<ActionResult, anyhow::Error> {
+    ) -> Result<ActionResult> {
         let mut result = ActionResult {
             enemy_position,
             enemy_target: player_position,
@@ -69,18 +69,6 @@ impl NormalEnemyAI {
                     let x = player_position.0;
                     let y = player_position.1;
                     result.enemy_position = (x, y);
-                }
-                Behavior::AttackRandom => {
-                    let mut rng = rand::thread_rng();
-                    let x = rng.gen_range(
-                        (player_position.0 - 500.0).min(0.0)
-                            ..(player_position.0 + 500.0).max(1920.0),
-                    );
-                    let y = rng.gen_range(
-                        (player_position.1 - 500.0).min(0.0)
-                            ..(player_position.1 + 500.0).max(1080.0),
-                    );
-                    result.enemy_target = (x, y);
                 }
                 Behavior::AttackPlayer => {
                     let x = player_position.0;

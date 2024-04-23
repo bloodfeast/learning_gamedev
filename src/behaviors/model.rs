@@ -21,9 +21,9 @@ pub struct EnemyBehaviors {
 }
 
 pub trait NodeTrait {
-    fn new(id: u32, name: String, parent: Option<u32>, children: Option<(u32, u32)>) -> Self;
+    fn new(id: u32, name: Behavior, parent: Option<u32>, children: Option<(u32, u32)>) -> Self;
     fn get_id(&self) -> u32;
-    fn get_name(&self) -> String;
+    fn get_name(&self) -> Behavior;
     fn get_parent(&self) -> Option<u32>;
     fn get_children(&self) -> Option<(u32, u32)>;
 }
@@ -96,11 +96,13 @@ impl BehaviorTree {
 }
 
 pub trait BehaviorTreeTrait {
-    fn new() -> Self;
+    fn new() -> Self
+    where
+        Self: Sized;
     fn get_root(&self) -> &Node;
     fn get_next_behaviors(&self, node_id: u32) -> Option<(u32, u32)>;
     fn get_node(&self, node_id: u32) -> Option<&Node>;
-    fn get_node_name(&self, node_id: u32) -> Option<String>;
+    fn get_node_name(&self, node_id: u32) -> Option<Behavior>;
     fn get_node_parent(&self, node_id: u32) -> Option<u32>;
     fn get_node_children(&self, node_id: u32) -> Option<(u32, u32)>;
     fn get_current_node(&self) -> u32;
@@ -110,7 +112,7 @@ pub trait CustomBehaviorTreeTrait {
     fn get_root(&self) -> &Node;
     fn get_next_behaviors(&self, node_id: u32) -> Option<(u32, u32)>;
     fn get_node(&self, node_id: u32) -> Option<&Node>;
-    fn get_node_name(&self, node_id: u32) -> Option<String>;
+    fn get_node_name(&self, node_id: u32) -> Option<Behavior>;
     fn get_node_parent(&self, node_id: u32) -> Option<u32>;
     fn get_node_children(&self, node_id: u32) -> Option<(u32, u32)>;
     fn get_current_node(&self) -> u32;
