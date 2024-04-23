@@ -198,7 +198,7 @@ impl event::EventHandler<GameError> for GameState {
 
         for i in 0..self.enemy.len() {
             let (x, y) = match ctx.time.time_since_start().as_millis() {
-                t if t <= 60000 && t % 1000 == 0 => (player_coords.0, player_coords.1),
+                t if t >= 60000 && t % 1000 == 0 => (player_coords.0, player_coords.1),
                 t if t % 600 == 0 && t < 60000 => {
                     // rng to determine the target position of the enemy
                     let mut rng = rand::thread_rng();
