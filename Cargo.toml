@@ -6,5 +6,7 @@ edition = "2021"
 
 
 [dependencies]
+anyhow = "1.0.82"
 ggez = "0.9.3"
 rand = "0.8.5"
+thiserror = "1.0.59"

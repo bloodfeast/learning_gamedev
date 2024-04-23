@@ -1,28 +1,28 @@
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, EnemyBehaviors, Node, NodeTrait};
 
-const NORMAL_ENEMY_BEHAVIOR_TREE: EnemyBehaviors = EnemyBehaviors {
+const ELUSIVE_ENEMY_BEHAVIOR_TREE: EnemyBehaviors = EnemyBehaviors {
     root: Node::new(0, Behavior::Idle, None, Some((1, 2))),
     nodes: vec![
-        Node::new(1, Behavior::MoveToRandom, Some(0), Some((3, 4))),
-        Node::new(2, Behavior::MoveToPlayer, Some(0), Some((5, 6))),
-        Node::new(3, Behavior::AttackRandom, Some(1), None),
-        Node::new(4, Behavior::MoveToPlayer, Some(1), None),
+        Node::new(1, Behavior::RunAway, Some(0), Some((3, 4))),
+        Node::new(2, Behavior::Dodge, Some(0), Some((5, 6))),
+        Node::new(3, Behavior::AttackPlayer, Some(1), None),
+        Node::new(4, Behavior::Dodge, Some(1), None),
         Node::new(5, Behavior::MoveToRandom, Some(2), None),
         Node::new(6, Behavior::AttackPlayer, Some(2), None),
     ],
 };
 
-pub struct NormalEnemyBehaviorTree {
+pub struct ElusiveEnemyBehaviorTree {
     root: Node,
     nodes: Vec<Node>,
     current_node: u32,
 }
 
-impl BehaviorTreeTrait for NormalEnemyBehaviorTree {
-    fn new() -> NormalEnemyBehaviorTree {
-        NormalEnemyBehaviorTree {
-            root: NORMAL_ENEMY_BEHAVIOR_TREE.root.clone(),
-            nodes: NORMAL_ENEMY_BEHAVIOR_TREE.nodes.clone(),
+impl BehaviorTreeTrait for ElusiveEnemyBehaviorTree {
+    fn new() -> ElusiveEnemyBehaviorTree {
+        ElusiveEnemyBehaviorTree {
+            root: ELUSIVE_ENEMY_BEHAVIOR_TREE.root.clone(),
+            nodes: ELUSIVE_ENEMY_BEHAVIOR_TREE.nodes.clone(),
             current_node: 0,
         }
     }
