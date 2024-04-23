@@ -71,4 +71,12 @@ impl StdEnemyBehaviorTree {
         }
         None
     }
+
+    pub fn get_current_node(&self) -> u32 {
+        self.current_node
+    }
+
+    pub fn set_current_node(&mut self, node_id: u32) {
+        self.current_node = node_id;
+    }
 }

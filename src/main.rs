@@ -1,5 +1,6 @@
 mod actors;
 mod asset_manager;
+mod behaviors;
 
 use crate::actors::enemy::{create_boss_enemy, create_enemy};
 use crate::actors::models::{
