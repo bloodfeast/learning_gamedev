@@ -68,21 +68,21 @@ pub fn get_enemy_polygon_mesh_vertices() -> Vec<Point2<f32>> {
 }
 pub fn get_boss_enemy_polygon_mesh_vertices() -> Vec<Point2<f32>> {
     vec![
-        Point2 { x: 0.0, y: 35.0 },
-        Point2 { x: 12.0, y: 35.0 },
-        Point2 { x: 16.0, y: 36.0 },
-        Point2 { x: 20.0, y: 26.0 },
-        Point2 { x: 26.0, y: 18.0 },
-        Point2 { x: 14.0, y: 22.0 },
-        Point2 { x: 14.0, y: 20.0 },
+        Point2 { x: 0.0, y: 55.0 },
+        Point2 { x: 32.0, y: 55.0 },
+        Point2 { x: 46.0, y: 56.0 },
+        Point2 { x: 50.0, y: 46.0 },
+        Point2 { x: 56.0, y: 38.0 },
+        Point2 { x: 44.0, y: 42.0 },
+        Point2 { x: 44.0, y: 40.0 },
         // middle
-        Point2 { x: -14.0, y: 20.0 },
-        Point2 { x: -14.0, y: 22.0 },
-        Point2 { x: -26.0, y: 18.0 },
-        Point2 { x: -20.0, y: 26.0 },
-        Point2 { x: -14.0, y: 36.0 },
-        Point2 { x: -12.0, y: 35.0 },
-        Point2 { x: 0.0, y: 35.0 },
+        Point2 { x: -44.0, y: 40.0 },
+        Point2 { x: -44.0, y: 42.0 },
+        Point2 { x: -56.0, y: 38.0 },
+        Point2 { x: -50.0, y: 46.0 },
+        Point2 { x: -46.0, y: 56.0 },
+        Point2 { x: -32.0, y: 55.0 },
+        Point2 { x: 0.0, y: 55.0 },
     ]
 }
 

@@ -198,15 +198,15 @@ impl event::EventHandler<GameError> for GameState {
 
         for i in 0..self.enemy.len() {
             let (x, y) = match ctx.time.time_since_start().as_millis() {
-                t if t % 2000 == 0 => (player_coords.0, player_coords.1),
-                t if t % 1000 == 0 => {
+                t if t <= 60000 && t % 1000 == 0 => (player_coords.0, player_coords.1),
+                t if t % 600 == 0 && t < 60000 => {
                     // rng to determine the target position of the enemy
                     let mut rng = rand::thread_rng();
                     let x = rng.gen_range(player_coords.0..(player_coords.0 + 1000.0));
                     let y = player_coords.1;
                     (x, y)
                 }
-                t if t % 800 == 0 => {
+                t if t % 500 == 0 && t < 60000 => {
                     // rng to determine the target position of the enemy
                     let mut rng = rand::thread_rng();
                     let x = rng.gen_range((player_coords.0 - 1000.0)..player_coords.0);
@@ -273,7 +273,12 @@ impl event::EventHandler<GameError> for GameState {
                         player_coords.0 + unit_direction.0 * 1000.0,
                         player_coords.1 + unit_direction.1 * 1000.0,
                     );
-                    for _ in 0..5 {
+                    let boss_kills = self.game_state_data.get("boss_count");
+                    let boss_kills = match boss_kills {
+                        Some(count) => count * 5.0,
+                        None => 5.0,
+                    };
+                    for _ in 0..=boss_kills as u32 {
                         let projectile_type = rand::thread_rng().gen_range(0..2);
                         match projectile_type {
                             0 => {
@@ -291,8 +296,6 @@ impl event::EventHandler<GameError> for GameState {
                                     Ok(_) => (),
                                     Err(e) => println!("Error playing laser_1: {:?}", e),
                                 }
-                                self.enemy[i].attack_cooldown =
-                                    Some(thread_rng().gen_range(50.0..500.0));
                                 self.projectiles.push(projectile);
                             }
                             1 => {
@@ -310,29 +313,12 @@ impl event::EventHandler<GameError> for GameState {
                                     Ok(_) => (),
                                     Err(e) => println!("Error playing laser_1: {:?}", e),
                                 }
-                                self.enemy[i].attack_cooldown =
-                                    Some(thread_rng().gen_range(50.0..500.0));
                                 self.projectiles.push(projectile);
                             }
                             _ => (),
                         }
-                        let projectile = create_enemy_projectile(
-                            self.enemy[i].x,
-                            self.enemy[i].y,
-                            far_away_target.0,
-                            far_away_target.1,
-                            create_enemy_projectile_mesh(ctx),
-                            Some(1.0),
-                        );
-                        self.assets.laser_1.set_volume(0.4);
-                        let res = self.assets.laser_1.play(ctx);
-                        match res {
-                            Ok(_) => (),
-                            Err(e) => println!("Error playing laser_1: {:?}", e),
-                        }
-                        self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(50.0..500.0));
-                        self.projectiles.push(projectile);
                     }
+                    self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(50.0..250.0));
                 } else {
                     // Multiply the unit direction vector by a large number to get a far away target position
                     let far_away_target = (
