@@ -2,6 +2,19 @@ use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
 use rand::Rng;
 use std::cmp::Ordering;
 
+pub trait EnemyAi {
+    fn new() -> Self
+    where
+        Self: Sized;
+    fn perform_action(
+        &mut self,
+        current_time: u128,
+        player_position: (f32, f32),
+        enemy_position: (f32, f32),
+        speed: f32,
+    ) -> Result<ActionResult, anyhow::Error>;
+}
+
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct BehaviorAction {
     pub(crate) behavior: Behavior,
@@ -24,6 +37,7 @@ impl PartialOrd for BehaviorAction {
 pub struct ActionResult {
     pub enemy_position: (f32, f32),
     pub enemy_target: (f32, f32),
+    pub is_attacking: bool,
 }
 
 pub fn get_next_child_actions(
@@ -32,7 +46,7 @@ pub fn get_next_child_actions(
     current_time: u128,
 ) -> Vec<BehaviorAction> {
     let mut actions = Vec::new();
-    if let Some((left, right)) = behavior_tree.get_next_behaviors(current_action.node_id) {
+    if let Some((left, right)) = behavior_tree.get_node_children(current_action.node_id) {
         let random = rand::thread_rng().gen_range(0..2);
         if random == 0 {
             if let Some(left_node) = behavior_tree.get_node(left) {

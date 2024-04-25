@@ -27,6 +27,7 @@ pub fn create_player_projectile(
         bounding_box: mesh,
         is_taking_damage: None,
         attack_cooldown: None,
+        ai: None,
     }
 }
 
@@ -51,6 +52,7 @@ pub fn create_player_alt_projectile(
         bounding_box: mesh,
         is_taking_damage: None,
         attack_cooldown: Some(5000.0),
+        ai: None,
     }
 }
 
@@ -75,6 +77,7 @@ pub fn create_enemy_projectile(
         bounding_box: mesh,
         is_taking_damage: None,
         attack_cooldown: None,
+        ai: None,
     }
 }
 
@@ -99,5 +102,6 @@ pub fn create_boss_enemy_projectile(
         bounding_box: mesh,
         is_taking_damage: None,
         attack_cooldown: None,
+        ai: None,
     }
 }

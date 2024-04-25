@@ -1,6 +1,6 @@
 mod actors;
 mod asset_manager;
-mod behaviors;
+pub mod behaviors;
 
 use crate::actors::enemy::{create_boss_enemy, create_enemy};
 use crate::actors::models::{
@@ -14,6 +14,11 @@ use crate::actors::projectile::{
     create_player_projectile, handle_timed_life,
 };
 use crate::asset_manager::Assets;
+use crate::behaviors::enemy_ai::aggressive_enemy_ai::AggressiveEnemyAI;
+use crate::behaviors::enemy_ai::elusive_enemy_ai::ElusiveEnemyAI;
+use crate::behaviors::enemy_ai::model::EnemyAi;
+use crate::behaviors::enemy_ai::normal_enemy_ai::NormalEnemyAI;
+use crate::behaviors::model::BehaviorTreeTrait;
 use ggez::audio::SoundSource;
 use ggez::conf::NumSamples;
 use ggez::event::MouseButton;
@@ -39,6 +44,7 @@ struct GameState {
     kills: u64,
     alt_cd: f32,
     game_state_data: std::collections::HashMap<String, f32>,
+    attacking_enemies: Vec<usize>,
 }
 fn handle_player_movement(
     player: &mut Actor,
@@ -198,26 +204,32 @@ impl event::EventHandler<GameError> for GameState {
         let player_coords = (self.player.x, self.player.y);
 
         for i in 0..self.enemy.len() {
-            let (x, y) = match ctx.time.time_since_start().as_millis() {
-                t if t >= 60000 && t % 1000 == 0 => (player_coords.0, player_coords.1),
-                t if t % 600 == 0 && t < 60000 => {
-                    // rng to determine the target position of the enemy
-                    let mut rng = rand::thread_rng();
-                    let x = rng.gen_range(player_coords.0..(player_coords.0 + 1000.0));
-                    let y = player_coords.1;
-                    (x, y)
+            let enemy_velocity = self.enemy[i].velocity.clone();
+            let x = self.enemy[i].target_x;
+            let y = self.enemy[i].target_y;
+            match &mut self.enemy[i].ai {
+                Some(ai) => {
+                    let res = ai.as_mut().perform_action(
+                        ctx.time.time_since_start().as_millis(),
+                        player_coords,
+                        (x, y),
+                        enemy_velocity,
+                    );
+                    let res = match res {
+                        Ok(res) => res,
+                        Err(e) => {
+                            println!("Error performing action: {:?}", e);
+                            continue;
+                        }
+                    };
+                    self.enemy[i].target_x = res.enemy_position.0;
+                    self.enemy[i].target_y = res.enemy_position.1;
+                    if res.is_attacking {
+                        self.attacking_enemies.push(i);
+                    }
                 }
-                t if t % 500 == 0 && t < 60000 => {
-                    // rng to determine the target position of the enemy
-                    let mut rng = rand::thread_rng();
-                    let x = rng.gen_range((player_coords.0 - 1000.0)..player_coords.0);
-                    let y = player_coords.1;
-                    (x, y)
-                }
-                _ => (self.enemy[i].target_x, self.enemy[i].target_y),
+                None => (),
             };
-            self.enemy[i].target_x = x;
-            self.enemy[i].target_y = y;
 
             // Prevent enemies from colliding with each other
             for j in 0..self.enemy.len() {
@@ -257,7 +269,8 @@ impl event::EventHandler<GameError> for GameState {
 
             handle_enemy_movement(&mut self.enemy[i], self.dt);
 
-            if self.enemy[i].attack_cooldown == Some(0.0) {
+            if self.enemy[i].attack_cooldown == Some(0.0) && self.attacking_enemies.contains(&i) {
+                self.attacking_enemies.retain(|&x| x != i);
                 let mut aim_x = player_coords.0 + rand::thread_rng().gen_range(-420.0..420.0);
                 let mut aim_y = player_coords.1 + rand::thread_rng().gen_range(-420.0..420.0);
 
@@ -486,12 +499,13 @@ impl event::EventHandler<GameError> for GameState {
                     wave_count * 1.25,
                     create_boss_enemy_spaceship_mesh(ctx),
                     Some(100_f32),
+                    Some(Box::new(AggressiveEnemyAI::new())),
                 ));
                 self.game_state_data
                     .insert("boss_count".to_string(), boss_count);
             }
             if !is_boss_round {
-                for _ in 0..(wave_count * 1.75).ceil() as u32 {
+                for i in 0..(wave_count * 1.75).ceil() as u32 {
                     let mut rng = rand::thread_rng();
                     let mut x_nums: Vec<i32> = (0..1800).collect();
                     let mut y_nums: Vec<i32> = (100..900).collect();
@@ -508,9 +522,23 @@ impl event::EventHandler<GameError> for GameState {
                         continue;
                     }
                     let attack_cd = if self.kills > 1 {
-                        Some(rng.gen_range(1000.0..5000.0))
+                        Some(rng.gen_range(1000.0..2000.0))
                     } else {
                         None
+                    };
+                    let ai_to_use: Box<dyn EnemyAi> = match i {
+                        i if i % 5 == 0 => {
+                            let ai = AggressiveEnemyAI::new();
+                            Box::new(ai)
+                        }
+                        i if i % 10 == 0 => {
+                            let ai = ElusiveEnemyAI::new();
+                            Box::new(ai)
+                        }
+                        _ => {
+                            let ai = NormalEnemyAI::new();
+                            Box::new(ai)
+                        }
                     };
 
                     let enemy = create_enemy(
@@ -520,6 +548,7 @@ impl event::EventHandler<GameError> for GameState {
                         create_enemy_spaceship_mesh(ctx),
                         Some(self.kills as f32 * 1.10),
                         attack_cd,
+                        Some(ai_to_use),
                     );
                     self.enemy.push(enemy);
                 }
@@ -957,6 +986,7 @@ fn main() {
         create_enemy_spaceship_mesh(&mut ctx),
         None,
         None,
+        Some(Box::new(NormalEnemyAI::new())),
     );
     let assets = Assets::new(&mut ctx);
     let assets = match assets {
@@ -976,6 +1006,7 @@ fn main() {
         kills: 0,
         alt_cd: 0.0,
         game_state_data: std::collections::HashMap::new(),
+        attacking_enemies: vec![],
     };
 
     event::run(ctx, event_loop, state);

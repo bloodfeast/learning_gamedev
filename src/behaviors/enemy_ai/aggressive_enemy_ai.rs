@@ -1,5 +1,7 @@
 use crate::behaviors::aggressive_enemy_behavior_tree::AggressiveEnemyBehaviorTree;
-use crate::behaviors::enemy_ai::model::{get_next_child_actions, ActionResult, BehaviorAction};
+use crate::behaviors::enemy_ai::model::{
+    get_next_child_actions, ActionResult, BehaviorAction, EnemyAi,
+};
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
 use anyhow::Result;
 use rand::Rng;
@@ -11,7 +13,7 @@ pub struct AggressiveEnemyAI {
     action_heap: BinaryHeap<BehaviorAction>,
 }
 
-impl AggressiveEnemyAI {
+impl EnemyAi for AggressiveEnemyAI {
     fn new() -> Self {
         let behavior_tree = AggressiveEnemyBehaviorTree::new();
         let current_action = BehaviorAction {
@@ -42,10 +44,12 @@ impl AggressiveEnemyAI {
         current_time: u128,
         player_position: (f32, f32),
         enemy_position: (f32, f32),
+        _speed: f32,
     ) -> Result<ActionResult> {
         let mut result = ActionResult {
             enemy_position,
             enemy_target: player_position,
+            is_attacking: false,
         };
         if current_time - self.current_action.last_performed >= 1000 {
             // Perform the action
@@ -74,22 +78,18 @@ impl AggressiveEnemyAI {
                     let x = player_position.0;
                     let y = player_position.1;
                     result.enemy_target = (x, y);
+                    result.is_attacking = true;
                 }
                 _ => {
                     result.enemy_position = enemy_position;
                 }
             }
 
-            // Update the last performed time
-            self.current_action.last_performed = current_time;
-
-            // Push the current action back into the heap
-            self.action_heap.push(self.current_action.clone());
-
             if self
                 .behavior_tree
                 .get_node_children(self.current_action.node_id)
                 .is_some()
+                && self.current_action.last_performed == 0
             {
                 // Push the children of the current action into the heap
                 get_next_child_actions(&self.behavior_tree, &self.current_action, current_time)
@@ -98,6 +98,12 @@ impl AggressiveEnemyAI {
                         self.action_heap.push(action.clone());
                     });
             }
+
+            // Update the last performed time
+            self.current_action.last_performed = current_time;
+
+            // Push the current action back into the heap
+            self.action_heap.push(self.current_action.clone());
 
             // Pop the next action from the heap
             self.current_action = self.action_heap.pop().unwrap_or(BehaviorAction {

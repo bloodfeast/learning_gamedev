@@ -1,17 +1,19 @@
-use crate::behaviors::enemy_ai::model::{get_next_child_actions, ActionResult, BehaviorAction};
+use crate::behaviors::enemy_ai::model::{
+    get_next_child_actions, ActionResult, BehaviorAction, EnemyAi,
+};
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
 use crate::behaviors::normal_enemy_behavior_tree::NormalEnemyBehaviorTree;
 use anyhow::Result;
 use rand::Rng;
 use std::collections::BinaryHeap;
 
-struct NormalEnemyAI {
+pub(crate) struct NormalEnemyAI {
     behavior_tree: NormalEnemyBehaviorTree,
     current_action: BehaviorAction,
     action_heap: BinaryHeap<BehaviorAction>,
 }
 
-impl NormalEnemyAI {
+impl EnemyAi for NormalEnemyAI {
     fn new() -> Self {
         let behavior_tree = NormalEnemyBehaviorTree::new();
         let current_action = BehaviorAction {
@@ -42,10 +44,12 @@ impl NormalEnemyAI {
         current_time: u128,
         player_position: (f32, f32),
         enemy_position: (f32, f32),
+        _speed: f32,
     ) -> Result<ActionResult, anyhow::Error> {
         let mut result = ActionResult {
             enemy_position,
             enemy_target: player_position,
+            is_attacking: false,
         };
         if current_time - self.current_action.last_performed >= 1000 {
             // Perform the action
@@ -81,27 +85,24 @@ impl NormalEnemyAI {
                             ..(player_position.1 + 500.0).max(1080.0),
                     );
                     result.enemy_target = (x, y);
+                    result.is_attacking = true;
                 }
                 Behavior::AttackPlayer => {
                     let x = player_position.0;
                     let y = player_position.1;
                     result.enemy_target = (x, y);
+                    result.is_attacking = true;
                 }
                 _ => {
                     result.enemy_position = enemy_position;
                 }
             }
 
-            // Update the last performed time
-            self.current_action.last_performed = current_time;
-
-            // Push the current action back into the heap
-            self.action_heap.push(self.current_action.clone());
-
             if self
                 .behavior_tree
                 .get_node_children(self.current_action.node_id)
                 .is_some()
+                && self.current_action.last_performed == 0
             {
                 // Push the children of the current action into the heap
                 get_next_child_actions(&self.behavior_tree, &self.current_action, current_time)
@@ -110,6 +111,12 @@ impl NormalEnemyAI {
                         self.action_heap.push(action.clone());
                     });
             }
+
+            // Update the last performed time
+            self.current_action.last_performed = current_time;
+
+            // Push the current action back into the heap
+            self.action_heap.push(self.current_action.clone());
 
             // Pop the next action from the heap
             self.current_action = self.action_heap.pop().unwrap_or(BehaviorAction {

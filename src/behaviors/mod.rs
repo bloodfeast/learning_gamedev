@@ -1,5 +1,5 @@
-pub mod aggressive_enemy_behavior_tree;
-pub mod elusive_enemy_behavior_tree;
-mod enemy_ai;
-pub mod model;
-pub mod normal_enemy_behavior_tree;
+mod aggressive_enemy_behavior_tree;
+mod elusive_enemy_behavior_tree;
+pub mod enemy_ai;
+pub(crate) mod model;
+mod normal_enemy_behavior_tree;

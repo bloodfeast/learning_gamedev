@@ -79,6 +79,7 @@ impl NodeTrait for Node {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct BehaviorTree {
     root: Node,
     nodes: Vec<Node>,

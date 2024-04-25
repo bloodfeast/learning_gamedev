@@ -1,3 +1,4 @@
+use crate::behaviors::enemy_ai::model::EnemyAi;
 use ggez::graphics;
 use ggez::graphics::Color;
 use ggez::mint::Point2;
@@ -12,7 +13,6 @@ pub enum ActorType {
     EnemyProjectile,
 }
 
-#[derive(Debug, Clone)]
 pub struct Actor {
     pub actor_type: ActorType,
     pub x: f32,
@@ -25,6 +25,7 @@ pub struct Actor {
     pub bounding_box: graphics::Mesh,
     pub is_taking_damage: Option<f32>,
     pub attack_cooldown: Option<f32>,
+    pub ai: Option<Box<dyn EnemyAi>>,
 }
 
 pub fn get_player_polygon_mesh_vertices() -> Vec<Point2<f32>> {

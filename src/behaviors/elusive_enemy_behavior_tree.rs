@@ -70,6 +70,9 @@ impl BehaviorTreeTrait for ElusiveEnemyBehaviorTree {
     }
 
     fn get_node_children(&self, node_id: u32) -> Option<(u32, u32)> {
+        if node_id == 0 {
+            return Some((1, 2));
+        }
         for node in &self.nodes {
             if node.get_id() == node_id {
                 return node.get_children();
