@@ -6,10 +6,14 @@ fn get_aggressive_enemy_behaviors() -> EnemyBehaviors {
         nodes: vec![
             Node::new(1, Behavior::MoveToPlayer, Some(0), Some((3, 4))),
             Node::new(2, Behavior::AttackPlayer, Some(0), Some((5, 6))),
-            Node::new(3, Behavior::MoveToRandom, Some(1), None),
-            Node::new(4, Behavior::AttackPlayer, Some(1), None),
+            Node::new(3, Behavior::Dodge, Some(1), Some((7, 8))),
+            Node::new(4, Behavior::AttackPlayer, Some(1), Some((9, 10))),
             Node::new(5, Behavior::MoveToPlayer, Some(2), None),
             Node::new(6, Behavior::AttackPlayer, Some(2), None),
+            Node::new(7, Behavior::AttackPlayer, Some(3), None),
+            Node::new(8, Behavior::Dodge, Some(3), None),
+            Node::new(9, Behavior::Dodge, Some(4), None),
+            Node::new(10, Behavior::MoveToPlayer, Some(4), None),
         ],
     }
 }

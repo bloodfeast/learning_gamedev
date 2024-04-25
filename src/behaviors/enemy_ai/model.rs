@@ -12,6 +12,7 @@ pub trait EnemyAi {
         player_position: (f32, f32),
         enemy_position: (f32, f32),
         speed: f32,
+        projectile_positions: Vec<(f32, f32)>,
     ) -> Result<ActionResult, anyhow::Error>;
 }
 
@@ -81,4 +82,64 @@ pub fn get_next_child_actions(
         }
     }
     actions
+}
+
+pub fn calculate_dodge_position(
+    enemy_position: (f32, f32),
+    projectile_positions: Vec<(f32, f32)>,
+    speed: f32,
+) -> (f32, f32) {
+    // check if there are any projectiles nearby
+    let mut nearby_projectiles = Vec::new();
+    for projectile_position in projectile_positions {
+        let dx = projectile_position.0 - enemy_position.0;
+        let dy = projectile_position.1 - enemy_position.1;
+        let distance = (dx.powf(2.0) + dy.powf(2.0)).sqrt();
+        if distance < 50.0 {
+            nearby_projectiles.push(projectile_position);
+        }
+    }
+
+    // if there are nearby projectiles, dodge them
+    if !nearby_projectiles.is_empty() {
+        // get the closest projectile
+        nearby_projectiles.sort_by(|a, b| {
+            let dx_a = a.0 - enemy_position.0;
+            let dy_a = a.1 - enemy_position.1;
+            let distance_a = (dx_a.powf(2.0) + dy_a.powf(2.0)).sqrt();
+            let dx_b = b.0 - enemy_position.0;
+            let dy_b = b.1 - enemy_position.1;
+            let distance_b = (dx_b.powf(2.0) + dy_b.powf(2.0)).sqrt();
+            distance_a.partial_cmp(&distance_b).unwrap()
+        });
+
+        let mut dodge_direction = (0.0, 0.0);
+
+        // Calculate the direction to dodge the nearest projectile
+        let closest_projectile = nearby_projectiles[0];
+        let dx = closest_projectile.0 - enemy_position.0;
+        let dy = closest_projectile.1 - enemy_position.1;
+        let magnitude = (dx.powf(2.0) + dy.powf(2.0)).sqrt();
+        dodge_direction = (dx / magnitude, dy / magnitude);
+        // Normalize the dodge direction
+        let magnitude = (dodge_direction.0.powf(2.0) + dodge_direction.1.powf(2.0)).sqrt();
+        let direction = (dodge_direction.0 / magnitude, dodge_direction.1 / magnitude);
+
+        return (
+            enemy_position.0 - direction.0 * speed,
+            enemy_position.1 - direction.1 * speed,
+        );
+    } else {
+        // If there are no nearby projectiles, move randomly
+        // Generate a random angle and distance
+        let mut rng = rand::thread_rng();
+        let angle = rng.gen_range(0.0..2.0 * std::f32::consts::PI);
+        let distance = rng.gen_range(0.0..500.0); // Set this to the desired dodge distance
+
+        // Calculate the new position
+        let dx = distance * angle.cos();
+        let dy = distance * angle.sin();
+
+        return (enemy_position.0 + dx, enemy_position.1 + dy);
+    }
 }

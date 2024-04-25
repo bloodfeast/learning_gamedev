@@ -1,6 +1,6 @@
 use crate::behaviors::aggressive_enemy_behavior_tree::AggressiveEnemyBehaviorTree;
 use crate::behaviors::enemy_ai::model::{
-    get_next_child_actions, ActionResult, BehaviorAction, EnemyAi,
+    calculate_dodge_position, get_next_child_actions, ActionResult, BehaviorAction, EnemyAi,
 };
 use crate::behaviors::model::{Behavior, BehaviorTreeTrait, NodeTrait};
 use anyhow::Result;
@@ -44,74 +44,77 @@ impl EnemyAi for AggressiveEnemyAI {
         current_time: u128,
         player_position: (f32, f32),
         enemy_position: (f32, f32),
-        _speed: f32,
+        speed: f32,
+        projectile_positions: Vec<(f32, f32)>,
     ) -> Result<ActionResult> {
         let mut result = ActionResult {
             enemy_position,
             enemy_target: player_position,
             is_attacking: false,
         };
-        if current_time - self.current_action.last_performed >= 1000 {
-            // Perform the action
-            match self.current_action.behavior {
-                Behavior::Idle => {
-                    result.enemy_position = enemy_position;
-                }
-                Behavior::MoveToRandom => {
-                    let mut rng = rand::thread_rng();
-                    let x = rng.gen_range(
-                        (enemy_position.0 - 1000.0).min(0.0)
-                            ..(enemy_position.0 + 1000.0).max(1920.0),
-                    );
-                    let y = rng.gen_range(
-                        (enemy_position.1 - 1000.0).min(0.0)
-                            ..(enemy_position.1 + 1000.0).max(1080.0),
-                    );
-                    result.enemy_position = (x, y);
-                }
-                Behavior::MoveToPlayer => {
-                    let x = player_position.0;
-                    let y = player_position.1;
-                    result.enemy_position = (x, y);
-                }
-                Behavior::AttackPlayer => {
-                    let x = player_position.0;
-                    let y = player_position.1;
-                    result.enemy_target = (x, y);
-                    result.is_attacking = true;
-                }
-                _ => {
-                    result.enemy_position = enemy_position;
-                }
+        if current_time - self.current_action.last_performed < 800 {
+            return Ok(result);
+        };
+        // Perform the action
+        match self.current_action.behavior {
+            Behavior::Idle => {
+                result.enemy_position = enemy_position;
             }
-
-            if self
-                .behavior_tree
-                .get_node_children(self.current_action.node_id)
-                .is_some()
-                && self.current_action.last_performed == 0
-            {
-                // Push the children of the current action into the heap
-                get_next_child_actions(&self.behavior_tree, &self.current_action, current_time)
-                    .iter()
-                    .for_each(|action| {
-                        self.action_heap.push(action.clone());
-                    });
+            Behavior::MoveToRandom => {
+                let mut rng = rand::thread_rng();
+                let x = rng.gen_range(
+                    (enemy_position.0 - 1000.0).min(0.0)..(enemy_position.0 + 1000.0).max(1920.0),
+                );
+                let y = rng.gen_range(
+                    (enemy_position.1 - 1000.0).min(0.0)..(enemy_position.1 + 1000.0).max(1080.0),
+                );
+                result.enemy_position = (x, y);
             }
-
-            // Update the last performed time
-            self.current_action.last_performed = current_time;
-
-            // Push the current action back into the heap
-            self.action_heap.push(self.current_action.clone());
-
-            // Pop the next action from the heap
-            self.current_action = self.action_heap.pop().unwrap_or(BehaviorAction {
-                behavior: Behavior::Idle,
-                node_id: 0,
-                last_performed: current_time,
-            });
+            Behavior::MoveToPlayer => {
+                let x = player_position.0;
+                let y = player_position.1;
+                result.enemy_position = (x, y);
+            }
+            Behavior::AttackPlayer => {
+                let x = player_position.0;
+                let y = player_position.1;
+                result.enemy_target = (x, y);
+                result.is_attacking = true;
+            }
+            Behavior::Dodge => {
+                result.enemy_position =
+                    calculate_dodge_position(enemy_position, projectile_positions, speed);
+            }
+            _ => {
+                result.enemy_position = enemy_position;
+            }
         }
+
+        if self
+            .behavior_tree
+            .get_node_children(self.current_action.node_id)
+            .is_some()
+            && self.current_action.last_performed == 0
+        {
+            // Push the children of the current action into the heap
+            self.action_heap.push(
+                get_next_child_actions(&self.behavior_tree, &self.current_action, 0)[0].clone(),
+            );
+        }
+
+        // Update the last performed time
+        self.current_action.last_performed = current_time;
+
+        // Push the current action back into the heap
+        self.action_heap.push(self.current_action.clone());
+
+        // Pop the next action from the heap
+        self.current_action = self.action_heap.pop().unwrap_or(BehaviorAction {
+            behavior: Behavior::Idle,
+            node_id: 0,
+            last_performed: current_time,
+        });
+
         return Ok(result);
     }
 }

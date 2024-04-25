@@ -71,7 +71,7 @@ pub fn create_enemy_projectile(
         y,
         target_x,
         target_y,
-        velocity: 600.0,
+        velocity: 800.0,
         color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
         hp: damage,
         bounding_box: mesh,
@@ -89,14 +89,14 @@ pub fn create_boss_enemy_projectile(
     mesh: Mesh,
     damage_modifier: Option<f32>,
 ) -> Actor {
-    let damage = 10.0 * damage_modifier.unwrap_or(1.0);
+    let damage = 5.0 * damage_modifier.unwrap_or(1.0);
     Actor {
         actor_type: ActorType::EnemyProjectile,
         x,
         y,
         target_x,
         target_y,
-        velocity: 400.0,
+        velocity: 800.0,
         color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
         hp: damage,
         bounding_box: mesh,

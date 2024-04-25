@@ -1,6 +1,5 @@
 use crate::actors::models::{Actor, ActorType};
 use crate::behaviors::enemy_ai::model::EnemyAi;
-use crate::behaviors::model::BehaviorTreeTrait;
 use ggez::graphics::{Color, Mesh};
 
 pub fn create_enemy(
@@ -48,7 +47,7 @@ pub fn create_boss_enemy(
         target_y: y,
         velocity: 100.0 * velocity_scale_factor,
         color,
-        hp: 1000.0 * hp_scale_factor,
+        hp: 500.0 * hp_scale_factor,
         bounding_box: mesh,
         is_taking_damage: None,
         attack_cooldown,

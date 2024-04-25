@@ -28,7 +28,7 @@ use ggez::input::mouse::CursorIcon;
 use ggez::mint::Point2;
 use ggez::winit::dpi::LogicalPosition;
 use ggez::winit::window::{CursorGrabMode, WindowLevel};
-use ggez::*;
+use ggez::{conf, event, Context, ContextBuilder, GameError, GameResult};
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::time::Duration;
@@ -94,8 +94,8 @@ fn handle_player_movement(
         }
     } else if is_moving {
         player.velocity += 1.0 * dt.as_millis() as f32; // Deceleration factor of 10.0
-        if player.velocity > 800.0 {
-            player.velocity = 800.0;
+        if player.velocity > 1000.0 {
+            player.velocity = 1000.0;
         }
     }
     // Calculate the direction vector from the actor's current position to the target position
@@ -201,7 +201,7 @@ impl event::EventHandler<GameError> for GameState {
             screen_width,
             screen_height,
         );
-        let player_coords = (self.player.x, self.player.y);
+        let mut player_coords = (self.player.x, self.player.y);
 
         for i in 0..self.enemy.len() {
             let enemy_velocity = self.enemy[i].velocity.clone();
@@ -214,6 +214,10 @@ impl event::EventHandler<GameError> for GameState {
                         player_coords,
                         (x, y),
                         enemy_velocity,
+                        self.projectiles
+                            .iter()
+                            .map(|projectile| (projectile.x, projectile.y))
+                            .collect(),
                     );
                     let res = match res {
                         Ok(res) => res,
@@ -224,6 +228,7 @@ impl event::EventHandler<GameError> for GameState {
                     };
                     self.enemy[i].target_x = res.enemy_position.0;
                     self.enemy[i].target_y = res.enemy_position.1;
+                    player_coords = res.enemy_target;
                     if res.is_attacking {
                         self.attacking_enemies.push(i);
                     }
@@ -231,41 +236,41 @@ impl event::EventHandler<GameError> for GameState {
                 None => (),
             };
 
-            // Prevent enemies from colliding with each other
-            for j in 0..self.enemy.len() {
-                if i != j {
-                    let other_enemy = &self.enemy[j];
-                    let distance = ((self.enemy[i].x - other_enemy.x).powi(2)
-                        + (self.enemy[i].y - other_enemy.y).powi(2))
-                    .sqrt();
-                    if distance
-                        < self.enemy[i]
-                            .bounding_box
-                            .dimensions(ctx)
-                            .expect("Failed to get bounding box dimensions")
-                            .w
-                            + 20.0
-                    {
-                        // Calculate the direction vector from other_enemy to enemy
-                        let direction = (
-                            self.enemy[i].x - other_enemy.x,
-                            self.enemy[i].y - other_enemy.y,
-                        );
-
-                        // Normalize the direction vector
-                        let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
-                        let unit_direction = if length > 0.0 {
-                            (direction.0 / length, direction.1 / length)
-                        } else {
-                            (0.0, 0.0)
-                        };
-
-                        // Set the target position to a point in the opposite direction
-                        self.enemy[i].target_x = self.enemy[i].x + unit_direction.0 * 10.0;
-                        self.enemy[i].target_y = self.enemy[i].y + unit_direction.1 * 10.0;
-                    }
-                }
-            }
+            // // Prevent enemies from colliding with each other
+            // for j in 0..self.enemy.len() {
+            //     if i != j {
+            //         let other_enemy = &self.enemy[j];
+            //         let distance = ((self.enemy[i].x - other_enemy.x).powi(2)
+            //             + (self.enemy[i].y - other_enemy.y).powi(2))
+            //         .sqrt();
+            //         if distance
+            //             < self.enemy[i]
+            //                 .bounding_box
+            //                 .dimensions(ctx)
+            //                 .expect("Failed to get bounding box dimensions")
+            //                 .w
+            //                 + 5.0
+            //         {
+            //             // Calculate the direction vector from other_enemy to enemy
+            //             let direction = (
+            //                 self.enemy[i].x - other_enemy.x,
+            //                 self.enemy[i].y - other_enemy.y,
+            //             );
+            //
+            //             // Normalize the direction vector
+            //             let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+            //             let unit_direction = if length > 0.0 {
+            //                 (direction.0 / length, direction.1 / length)
+            //             } else {
+            //                 (0.0, 0.0)
+            //             };
+            //
+            //             // Set the target position to a point in the opposite direction
+            //             self.enemy[i].target_x = self.enemy[i].x + unit_direction.0 * 10.0;
+            //             self.enemy[i].target_y = self.enemy[i].y + unit_direction.1 * 10.0;
+            //         }
+            //     }
+            // }
 
             handle_enemy_movement(&mut self.enemy[i], self.dt);
 
@@ -287,68 +292,57 @@ impl event::EventHandler<GameError> for GameState {
                     true => (direction.0 / length, direction.1 / length),
                     false => (0.0, 0.0),
                 };
+                // Multiply the unit direction vector by a large number to get a far away target position
+                let far_away_target = (
+                    player_coords.0 + unit_direction.0 * 1000.0,
+                    player_coords.1 + unit_direction.1 * 1000.0,
+                );
                 if self.enemy[i].actor_type == ActorType::BossEnemy {
-                    // Multiply the unit direction vector by a large number to get a far away target position
-                    let far_away_target = (
-                        player_coords.0 + unit_direction.0 * 1000.0,
-                        player_coords.1 + unit_direction.1 * 1000.0,
-                    );
                     let boss_kills = self.game_state_data.get("boss_count");
                     let boss_kills = match boss_kills {
-                        Some(count) => count * 5.0,
-                        None => 5.0,
+                        Some(count) => (count * 5.0) as u32,
+                        None => 5u32,
                     };
-                    for _ in 0..=boss_kills as u32 {
-                        let projectile_type = rand::thread_rng().gen_range(0..1000);
-                        let projectile_type = match projectile_type {
-                            0..=500 => 0,
-                            _ => 1,
-                        }; // 50% chance of firing a different projectile
-                        match projectile_type {
+                    for j in 0..=boss_kills {
+                        let mut offset = j as f32 * 200.0;
+                        if j % 2 == 0 {
+                            offset *= -1.0;
+                        }
+                        let projectile_type = j % 3;
+                        let projectile = match projectile_type {
                             0 => {
-                                let projectile = create_enemy_projectile(
-                                    self.enemy[i].x,
-                                    self.enemy[i].y,
-                                    far_away_target.0,
-                                    far_away_target.1,
-                                    create_enemy_projectile_mesh(ctx),
-                                    Some(1.0),
-                                );
-                                self.assets.laser_1.set_volume(0.4);
-                                let res = self.assets.laser_1.play(ctx);
-                                match res {
-                                    Ok(_) => (),
-                                    Err(e) => println!("Error playing laser_1: {:?}", e),
-                                }
-                                self.projectiles.push(projectile);
-                            }
-                            1 => {
                                 let projectile = create_boss_enemy_projectile(
                                     self.enemy[i].x,
                                     self.enemy[i].y,
-                                    far_away_target.0,
-                                    far_away_target.1,
+                                    far_away_target.0 + offset,
+                                    far_away_target.1 + offset,
                                     create_boss_enemy_projectile_mesh(ctx),
                                     Some(5.0),
                                 );
-                                self.assets.special_atk.set_volume(0.4);
-                                let res = self.assets.special_atk.play(ctx);
-                                match res {
-                                    Ok(_) => (),
-                                    Err(e) => println!("Error special atk sound: {:?}", e),
-                                }
-                                self.projectiles.push(projectile);
+                                projectile
                             }
-                            _ => (),
-                        }
+                            _ => {
+                                let projectile = create_enemy_projectile(
+                                    self.enemy[i].x,
+                                    self.enemy[i].y,
+                                    far_away_target.0 + offset,
+                                    far_away_target.1 + offset,
+                                    create_enemy_projectile_mesh(ctx),
+                                    Some(1.0),
+                                );
+                                projectile
+                            }
+                        };
+                        self.projectiles.push(projectile);
+                        self.assets.special_atk.set_volume(0.4);
+                        let res = self.assets.special_atk.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error special atk sound: {:?}", e),
+                        };
                     }
                     self.enemy[i].attack_cooldown = Some(100.0);
                 } else {
-                    // Multiply the unit direction vector by a large number to get a far away target position
-                    let far_away_target = (
-                        player_coords.0 + unit_direction.0 * 10000.0,
-                        player_coords.1 + unit_direction.1 * 10000.0,
-                    );
                     let projectile = create_enemy_projectile(
                         self.enemy[i].x,
                         self.enemy[i].y,
@@ -364,7 +358,7 @@ impl event::EventHandler<GameError> for GameState {
                         Ok(_) => (),
                         Err(e) => println!("Error playing laser_1: {:?}", e),
                     }
-                    self.enemy[i].attack_cooldown = Some(thread_rng().gen_range(500.0..5000.0));
+                    self.enemy[i].attack_cooldown = Some(1000.0);
                     self.projectiles.push(projectile);
                 }
             }
@@ -374,10 +368,10 @@ impl event::EventHandler<GameError> for GameState {
             handle_timed_life(projectile, self.dt.as_secs_f32());
             handle_projectile_trajectory(projectile, self.dt);
             // Check if the projectile is outside the screen boundaries
-            if projectile.x <= 0.0
-                || projectile.x >= screen_width
-                || projectile.y <= 0.0
-                || projectile.y >= screen_height
+            if projectile.x <= 0.0 - 500.0
+                || projectile.x >= screen_width + 500.0
+                || projectile.y <= 0.0 - 500.0
+                || projectile.y >= screen_height + 500.0
             {
                 projectile.hp = 0.0;
             }
@@ -404,7 +398,7 @@ impl event::EventHandler<GameError> for GameState {
                 let res = self.assets.damage.play(ctx);
                 match res {
                     Ok(_) => (),
-                    Err(e) => println!("Error playing bgm: {:?}", e),
+                    Err(e) => println!("Error playing damage sound: {:?}", e),
                 }
             }
         }
@@ -490,16 +484,31 @@ impl event::EventHandler<GameError> for GameState {
             };
             let is_eligible_for_boss = wave_count % 5.0 == 0.0;
             if is_eligible_for_boss {
+                let ai_to_use: Box<dyn EnemyAi> = match boss_count {
+                    boss_count if boss_count % 2.0 == 0.0 => {
+                        let ai = AggressiveEnemyAI::new();
+                        Box::new(ai)
+                    }
+                    boss_count if boss_count % 3.0 == 0.0 => {
+                        let ai = ElusiveEnemyAI::new();
+                        Box::new(ai)
+                    }
+                    _ => {
+                        let ai = NormalEnemyAI::new();
+                        Box::new(ai)
+                    }
+                };
+
                 is_boss_round = true;
                 self.enemy.push(create_boss_enemy(
                     900.0,
                     500.0,
                     Color::RED,
-                    wave_count * 1.75,
-                    wave_count * 1.25,
+                    boss_count * 1.75,
+                    wave_count * 1.05,
                     create_boss_enemy_spaceship_mesh(ctx),
-                    Some(100_f32),
-                    Some(Box::new(AggressiveEnemyAI::new())),
+                    Some(0_f32),
+                    Some(ai_to_use),
                 ));
                 self.game_state_data
                     .insert("boss_count".to_string(), boss_count);
@@ -513,7 +522,7 @@ impl event::EventHandler<GameError> for GameState {
                     y_nums.shuffle(&mut rng);
 
                     x_nums.retain(|&x| {
-                        x < (player_coords.0 - 400.0) as i32 || x > (player_coords.0 + 400.0) as i32
+                        x < (player_coords.0 - 900.0) as i32 || x > (player_coords.0 + 900.0) as i32
                     });
                     y_nums.retain(|&y| {
                         y < (player_coords.1 - 400.0) as i32 || y > (player_coords.1 + 400.0) as i32
@@ -522,7 +531,7 @@ impl event::EventHandler<GameError> for GameState {
                         continue;
                     }
                     let attack_cd = if self.kills > 1 {
-                        Some(rng.gen_range(1000.0..2000.0))
+                        Some(rng.gen_range(500.0..2000.0))
                     } else {
                         None
                     };
@@ -575,16 +584,20 @@ impl event::EventHandler<GameError> for GameState {
 
         fn get_background_pos(background_pos: &f32, background_height: f32) -> f32 {
             if background_pos >= &background_height {
-                20.0 - &background_height
+                -background_height
             } else {
-                background_pos + 20.0
+                background_pos + 10.0
             }
         }
 
-        let background_pos =
-            get_background_pos(&background_pos, self.assets.background.height() as f32);
-        let background_pos_2 =
-            get_background_pos(&background_pos_2, self.assets.background.height() as f32);
+        let background_pos = get_background_pos(
+            &background_pos,
+            self.assets.background.height() as f32 - (background_pos_2 + 22.0),
+        );
+        let background_pos_2 = get_background_pos(
+            &background_pos_2,
+            self.assets.background.height() as f32 - (background_pos + 12.0),
+        );
 
         self.game_state_data
             .insert("background_tile_1_y_pos".to_string(), background_pos);
@@ -628,7 +641,7 @@ impl event::EventHandler<GameError> for GameState {
             .bounding_box
             .draw(&mut canvas, Point2::from([self.player.x, self.player.y]));
 
-        let _ = &self.enemy.iter().for_each(|enemy| {
+        let _ = &self.enemy.iter().for_each(|mut enemy| {
             enemy
                 .bounding_box
                 .draw(&mut canvas, Point2::from([enemy.x, enemy.y]));
@@ -648,9 +661,10 @@ impl event::EventHandler<GameError> for GameState {
                 Err(e) => println!("Error playing bgm: {:?}", e),
             }
         }
-        if self.kills > 30 && self.kills < 50 {
-            let alert_text = Text::new(format!("Special Attack Unlocked! (RMB)"));
-            alert_text.draw(&mut canvas, Point2::from([800.0, 30.0]));
+        if self.kills > 30 && self.kills < 60 {
+            let mut alert_text = Text::new(format!("Special Attack Unlocked! (RMB)"));
+            alert_text.set_scale(40.0);
+            alert_text.draw(&mut canvas, Point2::from([400.0, 60.0]));
         }
 
         canvas.finish(ctx)
