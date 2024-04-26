@@ -1,12 +1,13 @@
 use crate::actors::models::{Actor, ActorType};
 use crate::behaviors::enemy_ai::model::EnemyAi;
-use ggez::graphics::{Color, Mesh};
+use ggez::graphics::{Color, Image, Mesh};
 
 pub fn create_enemy(
     x: f32,
     y: f32,
     color: Color,
     mesh: Mesh,
+    image: Option<Image>,
     hp_modifier: Option<f32>,
     attack_cooldown: Option<f32>,
     ai: Option<Box<dyn EnemyAi>>,
@@ -24,6 +25,7 @@ pub fn create_enemy(
         color,
         hp,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown,
         ai,
@@ -36,6 +38,7 @@ pub fn create_boss_enemy(
     hp_scale_factor: f32,
     velocity_scale_factor: f32,
     mesh: Mesh,
+    image: Option<Image>,
     attack_cooldown: Option<f32>,
     ai: Option<Box<dyn EnemyAi>>,
 ) -> Actor {
@@ -49,6 +52,7 @@ pub fn create_boss_enemy(
         color,
         hp: 500.0 * hp_scale_factor,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown,
         ai,

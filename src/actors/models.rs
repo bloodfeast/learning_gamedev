@@ -23,6 +23,7 @@ pub struct Actor {
     pub color: graphics::Color,
     pub hp: f32,
     pub bounding_box: graphics::Mesh,
+    pub image: Option<graphics::Image>,
     pub is_taking_damage: Option<f32>,
     pub attack_cooldown: Option<f32>,
     pub ai: Option<Box<dyn EnemyAi>>,

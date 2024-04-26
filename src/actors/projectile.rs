@@ -1,6 +1,6 @@
 use crate::actors::models::{Actor, ActorType};
 use ggez::graphics;
-use ggez::graphics::Mesh;
+use ggez::graphics::{Image, Mesh};
 
 pub fn handle_timed_life(actor: &mut Actor, dt: f32) {
     actor.hp -= dt;
@@ -12,6 +12,7 @@ pub fn create_player_projectile(
     target_x: f32,
     target_y: f32,
     mesh: Mesh,
+    image: Option<Image>,
     damage_modifier: Option<f32>,
 ) -> Actor {
     let damage = 10.0 * damage_modifier.unwrap_or(1.0);
@@ -25,6 +26,7 @@ pub fn create_player_projectile(
         color: graphics::Color::new(0.8, 0.8, 1.0, 1.0),
         hp: damage,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown: None,
         ai: None,
@@ -37,6 +39,7 @@ pub fn create_player_alt_projectile(
     target_x: f32,
     target_y: f32,
     mesh: Mesh,
+    image: Option<Image>,
     damage_modifier: Option<f32>,
 ) -> Actor {
     let damage = 10.0 * damage_modifier.unwrap_or(1.0);
@@ -50,6 +53,7 @@ pub fn create_player_alt_projectile(
         color: graphics::Color::new(0.4, 0.8, 0.9, 0.75),
         hp: damage,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown: Some(5000.0),
         ai: None,
@@ -62,6 +66,7 @@ pub fn create_enemy_projectile(
     target_x: f32,
     target_y: f32,
     mesh: Mesh,
+    image: Option<Image>,
     damage_modifier: Option<f32>,
 ) -> Actor {
     let damage = 10.0 * damage_modifier.unwrap_or(1.0);
@@ -75,6 +80,7 @@ pub fn create_enemy_projectile(
         color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
         hp: damage,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown: None,
         ai: None,
@@ -87,6 +93,7 @@ pub fn create_boss_enemy_projectile(
     target_x: f32,
     target_y: f32,
     mesh: Mesh,
+    image: Option<Image>,
     damage_modifier: Option<f32>,
 ) -> Actor {
     let damage = 5.0 * damage_modifier.unwrap_or(1.0);
@@ -100,6 +107,7 @@ pub fn create_boss_enemy_projectile(
         color: graphics::Color::new(1.0, 0.3, 0.3, 0.8),
         hp: damage,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown: None,
         ai: None,

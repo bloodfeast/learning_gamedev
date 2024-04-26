@@ -9,6 +9,8 @@ pub struct Assets {
     pub spread_shot_5: audio::Source,
     pub damage: audio::Source,
     pub background: graphics::Image,
+    pub player_ship: graphics::Image,
+    pub boss_ship: graphics::Image,
 }
 
 impl Assets {
@@ -77,6 +79,22 @@ impl Assets {
             )
             .as_str(),
         );
+        let player_ship = graphics::Image::from_path(ctx, "/player_ship.tiff").expect(
+            format!(
+                "Failed to load player_ship from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/player_ship.tiff"
+            )
+            .as_str(),
+        );
+        let boss_ship = graphics::Image::from_path(ctx, "/boss_ship.tiff").expect(
+            format!(
+                "Failed to load boss_ship from path {:?} {:?}",
+                ctx.fs.resources_dir(),
+                "/boss_ship.tiff"
+            )
+            .as_str(),
+        );
         Ok(Assets {
             bgm,
             player_laser_1,
@@ -86,6 +104,8 @@ impl Assets {
             spread_shot_5,
             damage,
             background,
+            player_ship,
+            boss_ship,
         })
     }
 }

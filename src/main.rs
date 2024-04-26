@@ -74,16 +74,16 @@ fn handle_player_movement(
     if player.x <= 0.0 {
         player.x = 0.0;
         player.target_x = player.x + 10.0;
-    } else if player.x >= screen_width {
-        player.x = screen_width;
+    } else if player.x + player.image.clone().unwrap().width() as f32 >= screen_width {
+        player.x = screen_width - player.image.clone().unwrap().width() as f32;
         player.target_x = player.x - 10.0;
     }
 
     if player.y <= 0.0 {
         player.y = 0.0;
         player.target_y = player.y + 10.0;
-    } else if player.y >= screen_height {
-        player.y = screen_height;
+    } else if player.y + player.image.clone().unwrap().height() as f32 >= screen_height {
+        player.y = screen_height - player.image.clone().unwrap().height() as f32;
         player.target_y = player.y - 10.0;
     }
     // If no movement keys are pressed, reduce the actor's velocity to simulate deceleration
@@ -294,8 +294,8 @@ impl event::EventHandler<GameError> for GameState {
                 };
                 // Multiply the unit direction vector by a large number to get a far away target position
                 let far_away_target = (
-                    player_coords.0 + unit_direction.0 * 1000.0,
-                    player_coords.1 + unit_direction.1 * 1000.0,
+                    player_coords.0 + unit_direction.0 * 10000.0,
+                    player_coords.1 + unit_direction.1 * 10000.0,
                 );
                 if self.enemy[i].actor_type == ActorType::BossEnemy {
                     let boss_kills = self.game_state_data.get("boss_count");
@@ -303,6 +303,7 @@ impl event::EventHandler<GameError> for GameState {
                         Some(count) => (count * 5.0) as u32,
                         None => 5u32,
                     };
+
                     for j in 0..=boss_kills {
                         let mut offset = j as f32 * 200.0;
                         if j % 2 == 0 {
@@ -317,6 +318,7 @@ impl event::EventHandler<GameError> for GameState {
                                     far_away_target.0 + offset,
                                     far_away_target.1 + offset,
                                     create_boss_enemy_projectile_mesh(ctx),
+                                    None,
                                     Some(5.0),
                                 );
                                 projectile
@@ -328,6 +330,7 @@ impl event::EventHandler<GameError> for GameState {
                                     far_away_target.0 + offset,
                                     far_away_target.1 + offset,
                                     create_enemy_projectile_mesh(ctx),
+                                    None,
                                     Some(1.0),
                                 );
                                 projectile
@@ -349,6 +352,7 @@ impl event::EventHandler<GameError> for GameState {
                         far_away_target.0,
                         far_away_target.1,
                         create_enemy_projectile_mesh(ctx),
+                        None,
                         Some(1.0),
                     );
 
@@ -377,16 +381,15 @@ impl event::EventHandler<GameError> for GameState {
             }
         }
 
-        // Check for collisions between the player and the enemy
         for enemy in &mut self.enemy {
+            // Check for collisions between the player and the enemy
             let distance =
                 ((enemy.x - self.player.x).powi(2) + (enemy.y - self.player.y).powi(2)).sqrt();
+            let player_image = self.player.image.clone().unwrap();
             if distance
-                < self
-                    .player
-                    .bounding_box
+                < player_image
                     .dimensions(ctx)
-                    .expect("Failed to get bounding box dimensions")
+                    .expect("Failed to get player image dimensions")
                     .w
             {
                 let player_hp = self.player.hp.clone();
@@ -401,6 +404,59 @@ impl event::EventHandler<GameError> for GameState {
                     Err(e) => println!("Error playing damage sound: {:?}", e),
                 }
             }
+            // Check for collisions between the enemy and the projectiles
+            for projectile in &mut self.projectiles {
+                if projectile.actor_type == ActorType::EnemyProjectile {
+                    continue;
+                }
+                let distance =
+                    ((projectile.x - enemy.x).powi(2) + (projectile.y - enemy.y).powi(2)).sqrt();
+                match &enemy.image {
+                    Some(image) => {
+                        if distance
+                            < image
+                                .dimensions(ctx)
+                                .expect("Failed to get enemy image dimensions")
+                                .w
+                        {
+                            let hp = enemy.hp.clone();
+                            take_damage(enemy, &projectile.hp);
+                            projectile.hp -= hp;
+                            if projectile.hp <= 0.0 {
+                                projectile.hp = 0.0;
+                            }
+                        }
+                    }
+                    None => {
+                        if distance
+                            < enemy
+                                .bounding_box
+                                .dimensions(ctx)
+                                .expect("Failed to get bounding box dimensions")
+                                .w
+                        {
+                            let hp = enemy.hp.clone();
+                            take_damage(enemy, &projectile.hp);
+                            projectile.hp -= hp;
+                            if projectile.hp <= 0.0 {
+                                projectile.hp = 0.0;
+                            }
+                        }
+                    }
+                }
+            }
+            if enemy.hp <= 0.0 {
+                if enemy.actor_type == ActorType::BossEnemy {
+                    self.kills += 10;
+                    let count = match self.game_state_data.get("boss_count") {
+                        Some(count) => count + 1.0,
+                        None => 1.0,
+                    };
+                    self.game_state_data.insert("boss_count".to_string(), count);
+                } else {
+                    self.kills += 1;
+                }
+            }
         }
 
         // Check for collisions between the player and the projectiles
@@ -408,12 +464,11 @@ impl event::EventHandler<GameError> for GameState {
             let distance = ((projectile.x - self.player.x).powi(2)
                 + (projectile.y - self.player.y).powi(2))
             .sqrt();
+            let player_image = self.player.image.clone().unwrap();
             if distance
-                < self
-                    .player
-                    .bounding_box
+                < player_image
                     .dimensions(ctx)
-                    .expect("Failed to get bounding box dimensions")
+                    .expect("Failed to get player image dimensions")
                     .w
             {
                 if projectile.actor_type == ActorType::EnemyProjectile {
@@ -430,38 +485,6 @@ impl event::EventHandler<GameError> for GameState {
                     if projectile.hp <= 0.0 {
                         projectile.hp = 0.0;
                     }
-                }
-            }
-        }
-
-        // Check for collisions between the enemy and the projectiles
-        for enemy in &mut self.enemy {
-            for projectile in &mut self.projectiles {
-                if projectile.actor_type == ActorType::EnemyProjectile {
-                    continue;
-                }
-                let distance =
-                    ((projectile.x - enemy.x).powi(2) + (projectile.y - enemy.y).powi(2)).sqrt();
-                if distance
-                    < enemy
-                        .bounding_box
-                        .dimensions(ctx)
-                        .expect("Failed to get bounding box dimensions")
-                        .w
-                {
-                    let hp = enemy.hp.clone();
-                    take_damage(enemy, &projectile.hp);
-                    projectile.hp -= hp;
-                    if projectile.hp <= 0.0 {
-                        projectile.hp = 0.0;
-                    }
-                }
-            }
-            if enemy.hp <= 0.0 {
-                if enemy.actor_type == ActorType::BossEnemy {
-                    self.kills += 10;
-                } else {
-                    self.kills += 1;
                 }
             }
         }
@@ -489,10 +512,6 @@ impl event::EventHandler<GameError> for GameState {
                         let ai = AggressiveEnemyAI::new();
                         Box::new(ai)
                     }
-                    boss_count if boss_count % 3.0 == 0.0 => {
-                        let ai = ElusiveEnemyAI::new();
-                        Box::new(ai)
-                    }
                     _ => {
                         let ai = NormalEnemyAI::new();
                         Box::new(ai)
@@ -507,13 +526,13 @@ impl event::EventHandler<GameError> for GameState {
                     boss_count * 1.75,
                     wave_count * 1.05,
                     create_boss_enemy_spaceship_mesh(ctx),
+                    Some(self.assets.boss_ship.clone()),
                     Some(0_f32),
                     Some(ai_to_use),
                 ));
                 self.game_state_data
                     .insert("boss_count".to_string(), boss_count);
-            }
-            if !is_boss_round {
+            } else {
                 for i in 0..(wave_count * 1.75).ceil() as u32 {
                     let mut rng = rand::thread_rng();
                     let mut x_nums: Vec<i32> = (0..1800).collect();
@@ -555,6 +574,7 @@ impl event::EventHandler<GameError> for GameState {
                         y_nums[0] as f32,
                         Color::RED,
                         create_enemy_spaceship_mesh(ctx),
+                        None,
                         Some(self.kills as f32 * 1.10),
                         attack_cd,
                         Some(ai_to_use),
@@ -637,14 +657,26 @@ impl event::EventHandler<GameError> for GameState {
             self.projectiles.drain(..);
             return canvas.finish(ctx);
         }
-        self.player
-            .bounding_box
-            .draw(&mut canvas, Point2::from([self.player.x, self.player.y]));
+        match &self.player.image {
+            Some(image) => {
+                canvas.draw(image, Point2::from([self.player.x, self.player.y]));
+            }
+            None => {
+                self.player
+                    .bounding_box
+                    .draw(&mut canvas, Point2::from([self.player.x, self.player.y]));
+            }
+        }
 
-        let _ = &self.enemy.iter().for_each(|mut enemy| {
-            enemy
-                .bounding_box
-                .draw(&mut canvas, Point2::from([enemy.x, enemy.y]));
+        let _ = &self.enemy.iter().for_each(|mut enemy| match &enemy.image {
+            Some(image) => {
+                canvas.draw(image, Point2::from([enemy.x, enemy.y]));
+            }
+            None => {
+                enemy
+                    .bounding_box
+                    .draw(&mut canvas, Point2::from([enemy.x, enemy.y]));
+            }
         });
 
         let _ = &self.projectiles.iter().for_each(|projectile| {
@@ -697,8 +729,10 @@ impl event::EventHandler<GameError> for GameState {
             player.y + unit_direction.1 * 10000.0,
         );
         // Get offset from player to projectile spawn point
-        let projectile_spawn_y_offset = if unit_direction.1 > 0.0 { 2.0 } else { -24.0 };
-        let projectile_spawn_x_offset = if unit_direction.0 > 0.0 { 10.0 } else { -10.0 };
+        let projectile_spawn_y_offset = 0.0;
+        // if unit_direction.1 > 0.0 { 20.0 } else { -20.0 };
+        let projectile_spawn_x_offset = 0.0;
+        // if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
         let projectiles: Option<Vec<Actor>> = match button {
             MouseButton::Left => {
                 let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.5);
@@ -720,6 +754,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 - 1600.0,
                                         far_away_target.1 - 800.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -731,6 +766,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 - 800.0,
                                         far_away_target.1 - 400.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -742,6 +778,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0,
                                         far_away_target.1,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -753,6 +790,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 + 800.0,
                                         far_away_target.1 + 400.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -764,6 +802,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 + 1600.0,
                                         far_away_target.1 + 800.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -791,6 +830,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 - 1000.0,
                                         far_away_target.1 - 400.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -802,6 +842,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0,
                                         far_away_target.1,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -813,6 +854,7 @@ impl event::EventHandler<GameError> for GameState {
                                         far_away_target.0 + 1000.0,
                                         far_away_target.1 + 400.0,
                                         create_player_projectile_mesh(ctx),
+                                        None,
                                         modifier,
                                     );
                                     split_projectiles.push(projectile);
@@ -837,6 +879,7 @@ impl event::EventHandler<GameError> for GameState {
                             far_away_target.0,
                             far_away_target.1,
                             create_player_projectile_mesh(ctx),
+                            None,
                             modifier,
                         );
 
@@ -857,10 +900,10 @@ impl event::EventHandler<GameError> for GameState {
                             None
                         } else {
                             self.alt_cd = 5000.0;
-                            let projectile_spawn_y_offset =
-                                if unit_direction.1 > 0.0 { 20.0 } else { -20.0 };
-                            let projectile_spawn_x_offset =
-                                if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
+                            let projectile_spawn_y_offset = 0.0;
+                            // if unit_direction.1 > 0.0 { 20.0 } else { -20.0 };
+                            let projectile_spawn_x_offset = 0.0;
+                            // if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
                             let mut modifier = Some(((self.kills / 30) as f32).floor() * 100.0);
                             if modifier
                                 .expect(
@@ -881,6 +924,7 @@ impl event::EventHandler<GameError> for GameState {
                                 far_away_target.0,
                                 far_away_target.1,
                                 create_player_alt_projectile_mesh(ctx),
+                                None,
                                 modifier,
                             ))
                         }
@@ -992,12 +1036,12 @@ fn main() {
         )
     });
     ctx.gfx.window().set_window_level(WindowLevel::AlwaysOnTop);
-    let player = create_player(900.0, 900.0, Color::WHITE, create_spaceship_mesh(&mut ctx));
     let enemy = create_enemy(
         900.0,
         100.0,
         Color::RED,
         create_enemy_spaceship_mesh(&mut ctx),
+        None,
         None,
         None,
         Some(Box::new(NormalEnemyAI::new())),
@@ -1010,6 +1054,13 @@ fn main() {
             std::process::exit(1);
         }
     };
+    let player = create_player(
+        900.0,
+        900.0,
+        Color::WHITE,
+        create_spaceship_mesh(&mut ctx),
+        Some(assets.player_ship.clone()),
+    );
     let state = GameState {
         dt: Duration::new(0, 0),
         assets,

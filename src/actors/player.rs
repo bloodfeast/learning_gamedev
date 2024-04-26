@@ -1,7 +1,7 @@
 use crate::actors::models::{Actor, ActorType};
-use ggez::graphics::{Color, Mesh};
+use ggez::graphics::{Color, Image, Mesh};
 
-pub fn create_player(x: f32, y: f32, color: Color, mesh: Mesh) -> Actor {
+pub fn create_player(x: f32, y: f32, color: Color, mesh: Mesh, image: Option<Image>) -> Actor {
     Actor {
         actor_type: ActorType::Player,
         x,
@@ -12,6 +12,7 @@ pub fn create_player(x: f32, y: f32, color: Color, mesh: Mesh) -> Actor {
         color,
         hp: 100.0,
         bounding_box: mesh,
+        image,
         is_taking_damage: None,
         attack_cooldown: None,
         ai: None,
