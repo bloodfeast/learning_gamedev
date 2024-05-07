@@ -16,7 +16,7 @@ use crate::behaviors::enemy_ai::model::EnemyAi;
 use crate::behaviors::enemy_ai::normal_enemy_ai::NormalEnemyAI;
 use crate::behaviors::model::BehaviorTreeTrait;
 use ggez::audio::SoundSource;
-use ggez::event::{EventLoop, MouseButton};
+use ggez::event::MouseButton;
 use ggez::graphics::{Canvas, Color, Drawable, Text};
 use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::mint::Point2;
@@ -24,6 +24,11 @@ use ggez::{event, Context, GameError, GameResult};
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::time::Duration;
+
+pub enum PlayState {
+    MainMenu = 1,
+    MainGame = 2,
+}
 
 pub struct GameState {
     dt: Duration,
@@ -36,6 +41,7 @@ pub struct GameState {
     alt_cd: f32,
     game_state_data: std::collections::HashMap<String, f32>,
     attacking_enemies: Vec<usize>,
+    play_state: PlayState,
 }
 fn handle_player_movement(
     player: &mut Actor,
@@ -175,8 +181,215 @@ fn handle_projectile_trajectory(projectile: &mut Actor, dt: Duration) {
     projectile.y += movement.1;
 }
 
-impl event::EventHandler<GameError> for GameState {
-    fn update(&mut self, ctx: &mut Context) -> GameResult {
+impl GameState {
+    pub fn new(ctx: &mut Context, assets: Assets) -> Self {
+        let player = create_player(
+            900.0,
+            500.0,
+            Color::WHITE,
+            create_spaceship_mesh(ctx),
+            Some(assets.player_ship.clone()),
+        );
+        let mut game_state_data = std::collections::HashMap::new();
+        game_state_data.insert("background_tile_1_y_pos".to_string(), 0.0);
+        game_state_data.insert("background_tile_2_y_pos".to_string(), 0.0);
+        game_state_data.insert("wave_count".to_string(), 1.0);
+        game_state_data.insert("boss_count".to_string(), 1.0);
+        let enemy = create_enemy(
+            1000.0,
+            500.0,
+            Color::RED,
+            create_enemy_spaceship_mesh(ctx),
+            None,
+            Some(1.0),
+            None,
+            None,
+        );
+        GameState {
+            dt: Duration::from_secs(0),
+            assets,
+            player,
+            enemy: vec![enemy],
+            projectiles: vec![],
+            keys_pressed: HashSet::new(),
+            kills: 0,
+            alt_cd: 0.0,
+            game_state_data,
+            attacking_enemies: vec![],
+            play_state: PlayState::MainMenu,
+        }
+    }
+
+    fn get_player_projectile_count(&self) -> u32 {
+        let level = self
+            .game_state_data
+            .get("weapon_level")
+            .get_or_insert(&1.0)
+            .clone();
+        match level {
+            1.0 => 1,
+            2.0 => 3,
+            3.0 => 5,
+            4.0 => 7,
+            5.0 => 9,
+            _ => 9,
+        }
+    }
+
+    pub fn handle_mouse_input(
+        &mut self,
+        ctx: &mut Context,
+        mouse_button: MouseButton,
+        x: f32,
+        y: f32,
+    ) {
+        // Create a player projectile when the space key is pressed
+        let player = &self.player;
+        // Calculate the direction vector from the player's current position to the mouse position
+        let direction = ((x - player.x), (y - player.y));
+        // Calculate the length of the direction vector
+        let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
+        // Normalize the direction vector to get a unit direction vector
+        let unit_direction = match length > 0.0 {
+            true => (direction.0 / length, direction.1 / length),
+            false => (0.0, 0.0),
+        };
+        let mut projectiles = vec![];
+        match mouse_button {
+            MouseButton::Left => {
+                let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.5);
+                if modifier.is_some_and(|x| x == 0.0) {
+                    modifier = None;
+                }
+                let projectile_count = self.get_player_projectile_count();
+                let projectile_offset = match projectile_count {
+                    1 => 0.0,
+                    3 => 800.0,
+                    5 => 400.0,
+                    7 => 300.0,
+                    9 => 200.0,
+                    _ => 0.0,
+                };
+                fn get_offset(i: u32, projectile_count: u32, projectile_offset: f32) -> f32 {
+                    let mid_index = (projectile_count as f32 / 2.0).ceil() as i32;
+                    let offset = 0.0;
+                    let offset_position = (mid_index - (i as i32)) as f32;
+                    (offset + offset_position) * projectile_offset
+                }
+                for i in 0..projectile_count {
+                    let offset_multiplier = get_offset(i, projectile_count, projectile_offset);
+                    let projectile_x_offset = projectile_offset * offset_multiplier;
+                    let projectile_y_offset = projectile_x_offset * 1.4;
+                    // Multiply the unit direction vector by a large number to get a far away target position
+                    let far_away_target = (
+                        player.x + unit_direction.0 * (10000.0 + projectile_x_offset),
+                        player.y + unit_direction.1 * (10000.0 + projectile_y_offset),
+                    );
+                    let projectile = create_player_projectile(
+                        self.player.x,
+                        self.player.y,
+                        far_away_target.0,
+                        far_away_target.1,
+                        create_player_projectile_mesh(ctx),
+                        None,
+                        modifier,
+                    );
+                    projectiles.push(projectile);
+                }
+                match projectile_count {
+                    1 => {
+                        self.assets.player_laser_1.set_volume(0.4);
+                        let res = self.assets.player_laser_1.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing player_laser_1: {:?}", e),
+                        }
+                    }
+                    3 => {
+                        self.assets.spread_shot_3.set_volume(0.4);
+                        let res = self.assets.spread_shot_3.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_3: {:?}", e),
+                        }
+                    }
+                    5 => {
+                        self.assets.spread_shot_5.set_volume(0.4);
+                        let res = self.assets.spread_shot_5.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_5: {:?}", e),
+                        }
+                    }
+                    7 => {
+                        self.assets.spread_shot_3.set_volume(0.2);
+                        self.assets.spread_shot_5.set_volume(0.4);
+                        let res = self.assets.spread_shot_3.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_3: {:?}", e),
+                        }
+                        let res = self.assets.spread_shot_5.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_5: {:?}", e),
+                        }
+                    }
+                    9 => {
+                        self.assets.spread_shot_5.set_volume(0.2);
+                        self.assets.spread_shot_5.set_volume(0.4);
+                        let res = self.assets.spread_shot_5.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_5: {:?}", e),
+                        }
+                        let res = self.assets.spread_shot_5.play(ctx);
+                        match res {
+                            Ok(_) => (),
+                            Err(e) => println!("Error playing spread_shot_5: {:?}", e),
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            MouseButton::Right => {
+                let mut modifier = Some(((self.kills / 30) as f32).floor() * 100.0);
+                if modifier
+                    .expect(
+                        "Failed to get modifier. This should never happen as the modifier is checked for None",
+                    ) == 0.0 {
+                    modifier = Some(100.0);
+                }
+
+                let far_away_target = (
+                    player.x + unit_direction.0 * 10000.0,
+                    player.y + unit_direction.1 * 10000.0,
+                );
+                if self.alt_cd <= 0.0 {
+                    let projectile = create_player_alt_projectile(
+                        self.player.x,
+                        self.player.y,
+                        far_away_target.0,
+                        far_away_target.1,
+                        create_player_alt_projectile_mesh(ctx),
+                        None,
+                        modifier,
+                    );
+                    projectiles.push(projectile);
+                    self.alt_cd = 5000.0;
+                    self.assets.special_atk.set_volume(0.4);
+                    let res = self.assets.special_atk.play(ctx);
+                    match res {
+                        Ok(_) => (),
+                        Err(e) => println!("Error special atk sound: {:?}", e),
+                    }
+                }
+            }
+            _ => (),
+        }
+        self.projectiles.extend(projectiles);
+    }
+    fn update_game(&mut self, ctx: &mut Context) -> GameResult {
         self.dt = ctx.time.delta();
         let screen_width = ctx.gfx.window().inner_size().width as f32;
         let screen_height = ctx.gfx.window().inner_size().height as f32;
@@ -252,13 +465,13 @@ impl event::EventHandler<GameError> for GameState {
                     player_coords.0 + unit_direction.0 * 10000.0,
                     player_coords.1 + unit_direction.1 * 10000.0,
                 );
+                let mut projectiles = vec![];
                 if self.enemy[i].actor_type == ActorType::BossEnemy {
                     let boss_kills = self.game_state_data.get("boss_count");
                     let boss_kills = match boss_kills {
                         Some(count) => (count * 5.0) as u32,
                         None => 5u32,
                     };
-
                     for j in 0..=boss_kills {
                         let mut offset = j as f32 * 200.0;
                         if j % 2 == 0 {
@@ -291,7 +504,7 @@ impl event::EventHandler<GameError> for GameState {
                                 projectile
                             }
                         };
-                        self.projectiles.push(projectile);
+                        projectiles.push(projectile);
                         self.assets.special_atk.set_volume(0.4);
                         let res = self.assets.special_atk.play(ctx);
                         match res {
@@ -317,9 +530,10 @@ impl event::EventHandler<GameError> for GameState {
                         Ok(_) => (),
                         Err(e) => println!("Error playing laser_1: {:?}", e),
                     }
+                    projectiles.push(projectile);
                     self.enemy[i].attack_cooldown = Some(1000.0);
-                    self.projectiles.push(projectile);
                 }
+                self.projectiles.extend(projectiles);
             }
         }
         for projectile in &mut self.projectiles {
@@ -410,6 +624,23 @@ impl event::EventHandler<GameError> for GameState {
                     self.game_state_data.insert("boss_count".to_string(), count);
                 } else {
                     self.kills += 1;
+                }
+                if self.kills % 20 == 0 {
+                    let level = self.game_state_data.get("weapon_level");
+                    let level = match level {
+                        Some(level) => {
+                            if level >= &5.0 {
+                                5.0
+                            } else if level >= &3.0 {
+                                level + 0.25
+                            } else {
+                                level + 1.0
+                            }
+                        }
+                        None => 2.0,
+                    };
+                    self.game_state_data
+                        .insert("weapon_level".to_string(), level);
                 }
             }
         }
@@ -541,8 +772,7 @@ impl event::EventHandler<GameError> for GameState {
 
         Ok(())
     }
-
-    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+    fn draw_game(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
         let fps = Text::new(format!("FPS: {:.2}", ctx.time.fps()));
         let mut kill_count = Text::new(format!("Kills: {}", self.kills));
@@ -656,6 +886,36 @@ impl event::EventHandler<GameError> for GameState {
 
         canvas.finish(ctx)
     }
+}
+
+impl event::EventHandler<GameError> for GameState {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        match self.play_state {
+            PlayState::MainGame => self.update_game(ctx),
+            PlayState::MainMenu => {
+                if self.keys_pressed.contains(&KeyCode::Return) {
+                    self.play_state = PlayState::MainGame;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        match self.play_state {
+            PlayState::MainGame => self.draw_game(ctx),
+            PlayState::MainMenu => {
+                let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
+                let mut title_text = Text::new("Space Shooter");
+                title_text.set_scale(50.0);
+                title_text.draw(&mut canvas, Point2::from([800.0, 300.0]));
+                let mut start_text = Text::new("Press Enter to Start");
+                start_text.set_scale(30.0);
+                start_text.draw(&mut canvas, Point2::from([800.0, 400.0]));
+                canvas.finish(ctx)
+            }
+        }
+    }
 
     fn mouse_button_down_event(
         &mut self,
@@ -669,236 +929,7 @@ impl event::EventHandler<GameError> for GameState {
         if player.hp <= 0.0 {
             return Ok(());
         }
-        // Calculate the direction vector from the player's current position to the mouse position
-        let direction = ((x - player.x), (y - player.y));
-        // Calculate the length of the direction vector
-        let length = (direction.0.powi(2) + direction.1.powi(2)).sqrt();
-        // Normalize the direction vector to get a unit direction vector
-        let unit_direction = match length > 0.0 {
-            true => (direction.0 / length, direction.1 / length),
-            false => (0.0, 0.0),
-        };
-        // Multiply the unit direction vector by a large number to get a far away target position
-        let far_away_target = (
-            player.x + unit_direction.0 * 10000.0,
-            player.y + unit_direction.1 * 10000.0,
-        );
-        // Get offset from player to projectile spawn point
-        let projectile_spawn_y_offset = 0.0;
-        // if unit_direction.1 > 0.0 { 20.0 } else { -20.0 };
-        let projectile_spawn_x_offset = 0.0;
-        // if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
-        let projectiles: Option<Vec<Actor>> = match button {
-            MouseButton::Left => {
-                let mut modifier = Some(((self.kills / 10) as f32).floor() * 1.5);
-                if modifier.expect(
-                    "Failed to get damage modifier for player projectile. This should never happen",
-                ) == 0.0
-                {
-                    modifier = None;
-                }
-                match self.kills {
-                    kills if kills > 50 => {
-                        let mut split_projectiles = vec![];
-                        for i in 0..5 {
-                            match i {
-                                0 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 1600.0,
-                                        far_away_target.1 - 800.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                1 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 800.0,
-                                        far_away_target.1 - 400.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                2 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0,
-                                        far_away_target.1,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                3 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 800.0,
-                                        far_away_target.1 + 400.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                4 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 1600.0,
-                                        far_away_target.1 + 800.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                _ => (),
-                            }
-                        }
-
-                        self.assets.spread_shot_5.set_volume(0.425);
-                        let res = self.assets.spread_shot_5.play(ctx);
-                        match res {
-                            Ok(_) => (),
-                            Err(e) => println!("Error playing bgm: {:?}", e),
-                        }
-                        Some(split_projectiles)
-                    }
-                    kills if kills > 15 => {
-                        let mut split_projectiles = vec![];
-                        for i in 0..3 {
-                            match i {
-                                0 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 - 1000.0,
-                                        far_away_target.1 - 400.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                1 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0,
-                                        far_away_target.1,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                2 => {
-                                    let projectile = create_player_projectile(
-                                        player.x + projectile_spawn_x_offset,
-                                        player.y + projectile_spawn_y_offset,
-                                        far_away_target.0 + 1000.0,
-                                        far_away_target.1 + 400.0,
-                                        create_player_projectile_mesh(ctx),
-                                        None,
-                                        modifier,
-                                    );
-                                    split_projectiles.push(projectile);
-                                }
-                                _ => (),
-                            }
-                        }
-
-                        self.assets.spread_shot_3.set_volume(0.425);
-                        let res = self.assets.spread_shot_3.play(ctx);
-                        match res {
-                            Ok(_) => (),
-                            Err(e) => println!("Error playing bgm: {:?}", e),
-                        }
-                        Some(split_projectiles)
-                    }
-                    _ => {
-                        // Create a player projectile at the player's position
-                        let projectile = create_player_projectile(
-                            player.x + projectile_spawn_x_offset,
-                            player.y + projectile_spawn_y_offset,
-                            far_away_target.0,
-                            far_away_target.1,
-                            create_player_projectile_mesh(ctx),
-                            None,
-                            modifier,
-                        );
-
-                        self.assets.player_laser_1.set_volume(0.4);
-                        let res = self.assets.player_laser_1.play(ctx);
-                        match res {
-                            Ok(_) => (),
-                            Err(e) => println!("Error playing bgm: {:?}", e),
-                        }
-                        Some(vec![projectile])
-                    }
-                }
-            }
-            MouseButton::Right => {
-                let alt_projectile: Option<Actor> = match self.alt_cd {
-                    cd if cd <= 0.0 => {
-                        if self.kills < 30 {
-                            None
-                        } else {
-                            self.alt_cd = 5000.0;
-                            let projectile_spawn_y_offset = 0.0;
-                            // if unit_direction.1 > 0.0 { 20.0 } else { -20.0 };
-                            let projectile_spawn_x_offset = 0.0;
-                            // if unit_direction.0 > 0.0 { 20.0 } else { -20.0 };
-                            let mut modifier = Some(((self.kills / 30) as f32).floor() * 100.0);
-                            if modifier
-                                .expect(
-                                    "Failed to get modifier. This should never happen as the modifier is checked for None",
-                                ) == 0.0 {
-                                modifier = Some(100.0);
-                            }
-
-                            self.assets.special_atk.set_volume(0.43);
-                            let res = self.assets.special_atk.play(ctx);
-                            match res {
-                                Ok(_) => (),
-                                Err(e) => println!("Error playing bgm: {:?}", e),
-                            }
-                            Some(create_player_alt_projectile(
-                                player.x + projectile_spawn_x_offset,
-                                player.y + projectile_spawn_y_offset,
-                                far_away_target.0,
-                                far_away_target.1,
-                                create_player_alt_projectile_mesh(ctx),
-                                None,
-                                modifier,
-                            ))
-                        }
-                    }
-                    _ => None,
-                };
-                match alt_projectile {
-                    Some(alt_projectile) => Some(vec![alt_projectile]),
-                    None => None,
-                }
-            }
-            _ => None,
-        };
-        match projectiles {
-            Some(projectiles) => {
-                self.projectiles.extend(projectiles);
-            }
-            None => (),
-        }
+        self.handle_mouse_input(ctx, button, x, y);
         Ok(())
     }
 
@@ -946,11 +977,7 @@ impl event::EventHandler<GameError> for GameState {
     }
 }
 
-pub fn build_main_game_state(
-    mut ctx: Context,
-    event_loop: EventLoop<()>,
-    assets: Assets,
-) -> GameResult {
+pub fn build_main_game_state(mut ctx: Context, assets: Assets) -> (Context, GameState) {
     let enemy = create_enemy(
         900.0,
         100.0,
@@ -979,6 +1006,7 @@ pub fn build_main_game_state(
         alt_cd: 0.0,
         game_state_data: std::collections::HashMap::new(),
         attacking_enemies: vec![],
+        play_state: PlayState::MainMenu,
     };
-    event::run(ctx, event_loop, state);
+    (ctx, state)
 }
